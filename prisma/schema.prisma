@@ -1,0 +1,92 @@
+// PostgreSQL schema for the food ordering module. Money is stored as integer kobo.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id     String  @id
+  name   String
+  slug   String
+  sort   Int     @default(0)
+  active Boolean @default(true)
+  items  MenuItem[]
+}
+
+model MenuItem {
+  id            String   @id
+  category      Category @relation(fields: [categoryId], references: [id])
+  categoryId    String
+  name          String
+  description   String   @default("")
+  basePriceKobo Int
+  variants      Json     @default("[]")   // [{ id, name, priceKobo }]
+  addOnGroups   Json     @default("[]")   // [{ id, name, min, max, options: [{ id, name, priceKobo, available }] }]
+  tags          String[]
+  imageUrl      String?
+  imageAlt      String   @default("")
+  active        Boolean  @default(true)   // false = disabled
+  available     Boolean  @default(true)   // false = sold out
+  sort          Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  @@index([categoryId])
+}
+
+model Order {
+  id             String   @id
+  orderNumber    String   @unique
+  publicToken    String
+  idempotencyKey String   @unique
+  fingerprint    String
+  customer       Json
+  fulfilment     Json
+  lines          Json
+  subtotalKobo   Int
+  deliveryFeeKobo Int
+  discountKobo   Int
+  promoCode      String?
+  totalKobo      Int
+  status         String
+  paymentStatus  String
+  notes          String[]
+  paidAt         DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  attempts       PaymentAttempt[]
+  @@index([status, createdAt])
+}
+
+model PaymentAttempt {
+  reference   String   @id
+  order       Order    @relation(fields: [orderId], references: [id])
+  orderId     String
+  checkoutId  String?
+  checkoutUrl String?
+  status      String
+  chargeId    String?
+  error       String?
+  createdAt   DateTime @default(now())
+  @@index([orderId])
+  @@index([chargeId])
+}
+
+model WebhookEvent {
+  id         String   @id          // Bachs event id: primary key gives atomic de-duplication
+  type       String
+  receivedAt DateTime @default(now())
+}
+
+// Generic JSON document store: vocational applications, invoices, receipts, content, media, unique-index documents.
+model Doc {
+  collection String
+  id         String
+  data       Json
+  createdAt  DateTime @default(now())
+  @@id([collection, id])
+  @@index([collection, createdAt])
+}

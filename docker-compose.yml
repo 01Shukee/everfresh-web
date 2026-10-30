@@ -1,0 +1,15 @@
+# Local rehearsal only. Production uses your host's managed PostgreSQL and secrets.
+services:
+  db:
+    image: postgres:16
+    environment: { POSTGRES_USER: everfresh, POSTGRES_PASSWORD: local-dev-only, POSTGRES_DB: everfresh }
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+  app:
+    build: .
+    depends_on: [db]
+    ports: ["3000:3000"]
+    env_file: .env
+    environment: { DATABASE_URL: "postgresql://everfresh:local-dev-only@db:5432/everfresh" }
+    volumes: ["uploads:/data/uploads"]
+volumes: { pgdata: {}, uploads: {} }

@@ -1,0 +1,10 @@
+import { createRoot } from "react-dom/client";
+import { Shell } from "./shell";
+import { HomeView } from "@/components/home/HomeView";
+import { AboutView, ContactView } from "@/components/site/views";
+import { OrderFoodView } from "@/components/order/OrderFoodView";
+import { AdminApp } from "@/components/admin/AdminApp";
+import { AdminLogin } from "@/components/admin/AdminLogin";
+const w = window as any; const B = w.__BODY__; const p = w.__PAGE__;
+const content = p === "home" ? <HomeView d={B} /> : p === "about" ? <AboutView s={B} /> : p === "contact" ? <ContactView s={B.s} whatsapp={B.whatsapp} /> : p === "menu" ? <OrderFoodView body={B} /> : p === "admin" ? <section className="wrap sec">{w.__ME__ ? <AdminApp me={w.__ME__} /> : <AdminLogin />}</section> : null;
+createRoot(document.getElementById("root")!).render(<Shell s={w.__SETTINGS__}>{content}</Shell>);
