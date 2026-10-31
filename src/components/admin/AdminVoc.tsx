@@ -27,7 +27,7 @@ function Applications() {
   const act = async (fn: () => Promise<{ ok: boolean; json: any }>, ok: string) => { const r = await fn(); setMsg(r.ok ? ok : r.json.error ?? "Failed."); if (open) loadDet(open); load(); return r; };
   const [lines, setLines] = useState("tuition | Tuition | \n"); const [due, setDue] = useState(""); const [terms, setTerms] = useState(""); const [pay, setPay] = useState({ amount: "", ref: "", note: "" });
   const makeInvoice = async () => {
-    const out = []; for (const l of parseLines(lines)) { const [kind, lab, amt] = l.split("|").map((x) => x.trim()); const k = decimalToKobo(amt); if (k === null) { setMsg(`Line "${l}": use "kind | label | amount in naira".`); return; } out.push({ kind, label: lab, amountKobo: k }); }
+    const out: { kind: string; label: string; amountKobo: number }[] = []; for (const l of parseLines(lines)) { const [kind, lab, amt] = l.split("|").map((x) => x.trim()); const k = decimalToKobo(amt); if (k === null) { setMsg(`Line "${l}": use "kind | label | amount in naira".`); return; } out.push({ kind, label: lab, amountKobo: k }); }
     await act(() => api(`/api/admin/voc/applications/${open}/invoices`, "POST", { lines: out, dueDate: due || undefined, paymentTerms: terms || undefined }), "Draft invoice created.");
   };
   return (
