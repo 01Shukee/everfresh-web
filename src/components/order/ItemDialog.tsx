@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatNaira } from "@/lib/money";
-import { MediaSlot } from "@/components/ui/MediaSlot";
+import { FoodImage } from "./FoodImage";
 import { useCart } from "./CartProvider";
 import { Stepper } from "./Stepper";
 import type { PublicItem } from "./types";
@@ -41,7 +41,7 @@ export function ItemDialog({ item, onClose, maxQty }: { item: PublicItem | null;
     <dialog ref={ref} className="itemdlg" aria-labelledby="item-title" onClose={onClose} onClick={(e) => { if (e.target === ref.current) onClose(); }}>
       <button type="button" className="dlg-x" onClick={onClose} aria-label="Close">&times;</button>
       <div className="itemdlg-in">
-        <MediaSlot media={item.imageUrl ? { src: item.imageUrl, alt: item.imageAlt, width: 600, height: 600 } : null} label={item.name.toUpperCase()} shape="circle" className="dlg-img" />
+        <FoodImage src={item.imageUrl} alt={item.imageAlt} size={600} className="dlg-img" />
         <div>
           <h2 id="item-title" className="serif">{item.name}</h2><p>{item.description}</p>
           {item.variants.length > 0 && <fieldset><legend className="lab">Size</legend><div className="opts">{item.variants.map((v) => (

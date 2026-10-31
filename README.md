@@ -114,3 +114,19 @@ Before staging: `npm install`, `npx prisma migrate dev`, `npx playwright install
 - Authenticator-app (TOTP) sign-in; required for owner and manager by default (`REQUIRE_2FA_ROLES`), 8 one-time recovery codes, secrets encrypted at rest with a key derived from `ADMIN_SESSION_SECRET`.
 - Deployment: `Dockerfile`, `docker-compose.yml`, `docs/OPERATIONS.md`, `scripts/backup.sh`, hand-written migration in `prisma/migrations` (never executed yet).
 - `e2e/`: browser verification harness (real route handlers and components, in-memory database). `tests/`: 93 automated tests (`npm test`).
+
+## Food menu import and dish photos
+The supplied Everfresh menu (21 dishes, Main Meals / Soups and Special Dishes / Protein and Extras) lives in `prisma/menu-data.ts` and is written to the database by the same save functions the admin uses, so every dish stays editable in Admin > Menu items.
+    npm run db:seed-menu -- --dry-run     # preview: what is added, replaced or switched off (writes nothing)
+    npm run db:seed-menu                  # import. Safe to re-run; nothing is deleted
+Rules: a dish you already edited is never touched; untouched SAMPLE versions (e.g. "Party Jollof Rice") are replaced in place by the real dish (no duplicates); other untouched sample dishes not on the supplied menu are switched off (re-enable in admin, or use `--keep-samples`). Runs once unless `--force`.
+
+Photos: no keys, no runtime API. Real photos are curated from Wikimedia Commons, downloaded once and self-hosted in `public/media/food/ng/` (cached for 7 days by `next.config.mjs`).
+    npm run food-images -- discover [slug]   # licence-checked candidates + a contact sheet to review in a browser (needs network)
+    # approve: paste the chosen "File:..." title into photo.commons in prisma/menu-data.ts (only if it shows THAT dish)
+    npm run food-images -- fetch [slug]      # downloads approved photos, writes CREDITS.md (show these credits on the site: CC BY / BY-SA require it)
+    npm run db:seed-menu -- --images-only    # points the dishes at the downloaded photos (never replaces a photo set in admin)
+A dish with no photo shows a drawing only where a drawing of the SAME dish exists, otherwise a neutral plate tile. A photo that fails to load falls back to the same tile.
+
+## Photo uploads on serverless hosting (Vercel)
+The disk on Vercel is read-only, so uploads cannot be written to `MEDIA_DIR`. `saveUpload` (src/server/media.ts) writes to the disk when it can and otherwise stores the image in the database (`upload` collection), served from the same `/uploads/<name>` URL. The admin upload button also shrinks large phone photos (max 1600 px, JPEG) before sending, because Vercel rejects request bodies over about 4.5 MB. With a persistent disk (Docker/VPS) nothing changes.

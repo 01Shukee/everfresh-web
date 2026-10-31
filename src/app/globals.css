@@ -84,7 +84,7 @@ h1 em { font-weight: 600; } .lede { max-width: 46ch; font-size: 19px; margin: 0 
 .food .big { font-size: clamp(2.6rem, 7vw, 6rem); } .chipl { background: var(--ef-green-deep); padding: 6px 14px; border-radius: var(--pill); }
 .panelp { max-width: 48ch; background: var(--ef-green-deep); padding: 14px 18px; border-radius: var(--radius); margin: 0 0 24px; }
 .chips { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 28px; }
-.chip { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: var(--pill); background: var(--ef-cream); color: var(--ef-green-deep); font-weight: 800; font-size: 14px; } .chip.sm { min-height: 36px; }
+.chip { display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: var(--pill); background: var(--ef-cream); color: var(--ef-green-deep); font-weight: 800; font-size: 13.5px; line-height: 1.2; } .chip.sm { min-height: 32px; }
 .band { display: flex; gap: 20px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 8px 2px 20px; } .band > * { scroll-snap-align: start; flex: 0 0 auto; margin: 0; }
 .plate { width: 190px; text-align: center; } .plate-img { width: 190px; height: 190px; background-color: var(--ef-cream); } .plate-cap { margin: 12px 0 20px; }
 .grid2 { display: grid; grid-template-columns: 5fr 7fr; gap: clamp(24px, 5vw, 72px); } @media (max-width: 960px) { .grid2 { grid-template-columns: 1fr; } }
@@ -134,14 +134,14 @@ textarea { min-height: 0; } input:focus-visible, select:focus-visible, textarea:
 .field.bad input, .field.bad select, .field.bad textarea { border-color: var(--ef-red); border-width: 2px; }
 fieldset { border: 0; padding: 0; margin: 0 0 32px; } legend { font-size: 1.6rem; font-weight: 800; color: var(--ef-green-deep); padding: 0; margin-bottom: 14px; } legend.lab { font-size: 12.5px; margin-bottom: 8px; }
 .check { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-weight: 700; } .check input { width: 20px; height: 20px; accent-color: var(--ef-green-deep); }
-.seg { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; } .seg label { display: inline-flex; align-items: center; min-height: 48px; padding: 0 20px; border: 2px solid var(--ef-green-deep); border-radius: var(--pill); font-weight: 800; color: var(--ef-green-deep); cursor: pointer; } .seg label.on { background: var(--ef-green-deep); color: #fff; } .seg input { position: absolute; opacity: 0; } .seg label:has(input:focus-visible) { outline: 3px solid var(--ef-ink); outline-offset: 3px; }
+.seg { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; } .seg label { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; font-size: 15px; border: 2px solid var(--ef-green-deep); border-radius: var(--pill); font-weight: 800; color: var(--ef-green-deep); cursor: pointer; } .seg label.on { background: var(--ef-green-deep); color: #fff; } .seg input { position: absolute; opacity: 0; } .seg label:has(input:focus-visible) { outline: 3px solid var(--ef-ink); outline-offset: 3px; }
 /* menu */
 .orderhead { padding: clamp(40px, 6vw, 80px) 0; } .menuwrap { padding-top: 32px; }
 .menubar { position: sticky; top: 72px; z-index: 5; background: var(--ef-cream); padding: 12px 0; border-bottom: 1px solid var(--ef-line); display: grid; gap: 10px; }
-.search input { max-width: 480px; } .catrail { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; }
-.cat { flex: 0 0 auto; min-height: 44px; padding: 0 16px; border-radius: var(--pill); border: 2px solid var(--ef-green-deep); background: transparent; color: var(--ef-green-deep); font-weight: 800; } .cat span { opacity: .7; margin-left: 4px; font-size: 13px; }
+.search input { max-width: 480px; } .catrail { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: 4px; scroll-snap-type: x proximity; }
+.cat { flex: 0 0 auto; min-height: 40px; padding: 0 14px; border-radius: var(--pill); border: 2px solid var(--ef-green-deep); background: transparent; color: var(--ef-green-deep); font-weight: 800; font-size: 14.5px; white-space: nowrap; } .cat span { opacity: .7; margin-left: 4px; font-size: 13px; }
 .cat.on, .chip.on { background: var(--ef-green-deep); color: #fff; border-color: var(--ef-green-deep); box-shadow: 0 5px 0 -1px var(--ef-amber); }
-.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; } .filters .chip { border: 2px solid var(--ef-green-deep); background: transparent; min-height: 40px; }
+.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; } .filters .chip { border: 2px solid var(--ef-green-deep); background: transparent; min-height: 36px; }
 .menusec { margin-top: 40px; } .menusec h2 { margin-top: 0; color: var(--ef-green-deep); }
 .dishes { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 20px; }
 .dish { display: grid; grid-template-columns: 112px 1fr; gap: 16px; align-items: center; padding: 16px; background: #fff; border: 1px solid var(--ef-line); border-radius: var(--radius); }
@@ -165,16 +165,17 @@ dialog { border: 0; padding: 0; color: var(--ef-ink); } dialog::backdrop { backg
 .co-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(24px, 5vw, 64px); margin-top: 24px; } @media (max-width: 800px) { .co-grid { grid-template-columns: 1fr; } }
 .dl { display: grid; grid-template-columns: 120px 1fr; gap: 8px 16px; } .dl dt { font-weight: 800; } .dl dd { margin: 0; }
 /* admin */
-.admin-head { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; margin-bottom: 24px; } .admin-head h1 { margin: 0; color: var(--ef-green-deep); font-size: 2.4rem; } .admin-tabs { display: flex; gap: 8px; margin-right: auto; } .admin-tabs button { min-height: 44px; padding: 0 18px; border-radius: var(--pill); border: 2px solid var(--ef-green-deep); background: transparent; font-weight: 800; color: var(--ef-green-deep); } .admin-tabs .on { background: var(--ef-green-deep); color: #fff; }
-.bar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; } .bar h2 { margin: 0 auto 0 0; color: var(--ef-green-deep); } .inl select { min-height: 44px; }
+.admin { min-width: 0; } .admin-head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 20px; } .admin-head h1 { margin: 0; color: var(--ef-green-deep); font-size: clamp(1.9rem, 5vw, 2.4rem); } .admin-head .admin-tabs { order: 3; flex: 1 0 100%; }
+.admin-tabs { display: flex; gap: 8px; } .admin-tabs button { min-height: 40px; padding: 0 14px; border-radius: var(--pill); border: 2px solid var(--ef-green-deep); background: transparent; font-weight: 800; font-size: 14px; color: var(--ef-green-deep); } .admin-tabs .on { background: var(--ef-green-deep); color: #fff; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 12px; } .bar h2 { margin: 0 auto 0 0; color: var(--ef-green-deep); } .inl { flex: 1 1 130px; max-width: 220px; min-width: 0; } .inl select { min-height: 44px; }
 .orders { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; } .orders li { background: #fff; border: 1px solid var(--ef-line); border-radius: var(--radius); } .orders li.flag { border: 2px solid var(--ef-red); }
-.orow { display: grid; grid-template-columns: 150px 1fr 110px 140px 140px 120px; gap: 12px; align-items: center; width: 100%; text-align: left; background: none; border: 0; padding: 12px 16px; min-height: 52px; } @media (max-width: 900px) { .orow { grid-template-columns: 1fr 1fr; } }
+.orow { display: grid; grid-template-columns: 150px 1fr 110px 140px 140px 120px; gap: 12px; align-items: center; width: 100%; text-align: left; background: none; border: 0; padding: 12px 16px; min-height: 52px; } @media (max-width: 900px) { .orow { grid-template-columns: repeat(2, minmax(0, 1fr)); } .orow > * { min-width: 0; overflow-wrap: anywhere; } .orow > .tag { justify-self: start; } }
 .odetail { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; padding: 8px 16px 20px; border-top: 1px solid var(--ef-line); } @media (max-width: 900px) { .odetail { grid-template-columns: 1fr; } } .odetail ul { padding-left: 18px; margin: 4px 0; } .notes { color: var(--ef-ink-soft); }
 .acts { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
 .tag.pay-paid, .tag.st-completed { background: var(--ef-green-deep); color: #fff; } .tag.pay-needs_review, .tag.pay-failed, .tag.st-cancelled { background: var(--ef-red); color: #fff; }
-.atable { width: 100%; border-collapse: collapse; background: #fff; border-radius: var(--radius); overflow: hidden; } .atable th, .atable td { text-align: left; padding: 10px 14px; border-top: 1px solid var(--ef-line); } .atable th { font-size: 12.5px; letter-spacing: .08em; text-transform: uppercase; }
-.adminform { background: #fff; border: 1px solid var(--ef-line); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; } .adminform h3 { margin: 0 0 12px; color: var(--ef-green-deep); } .grid-f { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; } .grid-f2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; } @media (max-width: 800px) { .grid-f, .grid-f2 { grid-template-columns: 1fr; } } .checks { display: flex; gap: 24px; flex-wrap: wrap; }
-.catlist { list-style: none; padding: 0; display: grid; gap: 8px; max-width: 640px; } .catlist li { display: flex; gap: 16px; align-items: center; padding: 8px 16px; background: #fff; border: 1px solid var(--ef-line); border-radius: var(--radius); } .catlist b { margin-right: auto; } .inl-form { display: flex; gap: 12px; align-items: end; margin-bottom: 20px; max-width: 520px; } .inl-form .field { margin: 0; flex: 1; }
+.atable { width: 100%; border-collapse: collapse; background: #fff; border-radius: var(--radius); overflow: hidden; } @media (max-width: 900px) { .atable { display: block; position: relative; max-width: 100%; overflow-x: auto; } } /* position: relative contains the visually-hidden header text (.sr is absolute) so it cannot widen the page */ .atable th, .atable td { text-align: left; padding: 10px 14px; border-top: 1px solid var(--ef-line); } .atable th { font-size: 12.5px; letter-spacing: .08em; text-transform: uppercase; }
+.adminform { background: #fff; border: 1px solid var(--ef-line); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; } .adminform h3 { margin: 0 0 12px; color: var(--ef-green-deep); } .grid-f { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; } .grid-f2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; } @media (max-width: 800px) { .grid-f, .grid-f2 { grid-template-columns: minmax(0, 1fr); } } .grid-f > *, .grid-f2 > * { min-width: 0; } .checks { display: flex; gap: 24px; flex-wrap: wrap; }
+.catlist { list-style: none; padding: 0; display: grid; gap: 8px; max-width: 640px; } .catlist li { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 8px 16px; background: #fff; border: 1px solid var(--ef-line); border-radius: var(--radius); } .catlist b { margin-right: auto; min-width: 0; overflow-wrap: anywhere; } .inl-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin-bottom: 20px; max-width: 520px; } .inl-form .field { margin: 0; flex: 1; }
 .login { max-width: 420px; }
 .food h1 { color: var(--ef-cream); }
 .order h2, .admin h2, .co-side h2, .checkout legend { font-size: clamp(1.5rem, 3vw, 2rem); margin: 0 0 12px; line-height: 1.15; }
@@ -199,7 +200,7 @@ dialog { border: 0; padding: 0; color: var(--ef-ink); } dialog::backdrop { backg
 .compare { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 20px; } .ccol { background: #fff; border: 1.5px solid var(--ef-line); border-radius: var(--radius); padding: 24px; } .ccol.sel { border-color: var(--ef-green-deep); box-shadow: 0 6px 0 -2px var(--ef-amber); } .ccol header { margin-bottom: 14px; border-bottom: 2px solid var(--ef-green-deep); padding-bottom: 10px; } .ccol header h3 { margin: 0; font-size: 2.2rem; color: var(--ef-green-deep); }
 @media (max-width: 960px) { .compare { grid-template-columns: 1fr; } .ccol:not(.sel) { display: none; } }
 .inv { background: #fff; border: 1.5px solid var(--ef-line); border-radius: var(--radius); padding: 20px; margin-top: 16px; max-width: 760px; } .inv header { display: flex; justify-content: space-between; align-items: center; } .invs h2 { margin-top: 40px; } .actions { display: grid; gap: 12px; margin-top: 12px; }
-.admin-tabs.sub { margin: 0 0 16px; flex-wrap: wrap; } .admin-tabs.sub button { min-height: 40px; }
+.admin-tabs.sub { margin: 0 0 12px; } .admin-tabs.sub button { min-height: 36px; }
 .vhero-in > *, .compare > *, .progcards > * { min-width: 0; } .vmosaic { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .vt { min-width: 0; } .compare { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 960px) { .compare { grid-template-columns: minmax(0, 1fr); } .vhero-in { grid-template-columns: minmax(0, 1fr); } }
 .slot span { min-width: 0; overflow-wrap: anywhere; }
@@ -299,3 +300,14 @@ dialog { border: 0; padding: 0; color: var(--ef-ink); } dialog::backdrop { backg
   .gal-img, .cg-img { height: auto; }            /* the width/height attributes would otherwise stretch every tile */
   .ccats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .ccat { padding: 24px 12px 16px; } .ccat h3 { font-size: 1.1rem; } .ccat p { font-size: 13px; }
 }
+
+/* ===== Chip rails: tabs, filters and category chips stay on ONE row and scroll sideways when the screen is too narrow =====
+   Cause of the old overflow: these were flex rows whose items could neither shrink nor scroll (or wrapped into tall multi-row blocks),
+   so a long row pushed the whole page wider than the screen. A scroll container needs a little padding, or it clips focus rings and the amber selected underline. */
+.admin-tabs, .filters, .chips { flex-wrap: nowrap; align-items: center; min-width: 0; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; padding: 4px 4px 10px; }
+.admin-tabs > *, .filters > *, .chips > * { flex: 0 0 auto; white-space: nowrap; }
+.chips { margin-bottom: 18px; } .filterpanel .filters { margin-bottom: 6px; }
+@media (max-width: 720px) { .admin-tabs button { min-height: 38px; padding: 0 12px; font-size: 13.5px; } .chip { min-height: 34px; padding: 0 12px; } }
+
+/* ===== Dish photo fallback (FoodImage): neutral plate tile when a photo is missing or fails to load ===== */
+.foodfb { color: var(--ef-green-deep); padding: 0; } .foodfb svg { width: 42%; height: 42%; opacity: .55; }

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatNaira } from "@/lib/money";
-import { MediaSlot } from "@/components/ui/MediaSlot";
+import { FoodImage } from "./FoodImage";
 import { ItemDialog } from "./ItemDialog";
 import { CartBar } from "./CartBar";
 import { useCart } from "./CartProvider";
@@ -66,7 +66,7 @@ export function MenuBrowser({ categories, items, ordering }: { categories: { id:
               const complex = i.variants.length > 0 || i.addOnGroups.length > 0; const count = inCart(i.id); const pl = !complex ? plainLine(i.id) : undefined;
               return (
                 <li key={i.id} className={`dish ${!i.available ? "soldout" : ""} ${n === 0 ? "feature" : ""}`}>
-                  <MediaSlot media={i.imageUrl ? { src: i.imageUrl, alt: i.imageAlt, width: 400, height: 400 } : null} label={i.name.toUpperCase()} shape="circle" className="dish-img" />
+                  <FoodImage src={i.imageUrl} alt={i.imageAlt} size={400} className="dish-img" />
                   <div className="dish-body"><h3 className="serif">{i.name}</h3>{i.description && <p>{i.description}</p>}
                     <div className="dish-meta"><span className="price tab">{i.variants.length ? "From " : ""}{formatNaira(priceOf(i))}</span>{!i.available && <span className="tag dark">Sold out</span>}{complex && count > 0 && <span className="incart">{count} in cart</span>}</div></div>
                   {!i.available ? <button className="pill sm addbtn" disabled aria-label={`${i.name} is sold out`}><span className="addlab">Sold out</span></button>

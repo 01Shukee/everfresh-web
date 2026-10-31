@@ -11,6 +11,8 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed-menu": "tsx prisma/seed-menu.ts",
+    "food-images": "tsx scripts/food-images.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

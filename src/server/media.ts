@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { Repo } from "./repo";
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const mediaDir = () => process.env.MEDIA_DIR ?? join(process.cwd(), ".uploads");
@@ -19,4 +20,19 @@ export async function saveImage(bytes: Uint8Array, dir = mediaDir()): Promise<{ 
 const TYPES: Record<string, string> = { jpg: "image/jpeg", png: "image/png", webp: "image/webp" };
 export async function readUpload(name: string, dir = mediaDir()): Promise<{ bytes: Buffer; type: string } | null> {
   const m = /^[a-f0-9]{32}\.(jpg|png|webp)$/.exec(name); if (!m) return null; try { return { bytes: await readFile(join(dir, name)), type: TYPES[m[1]] }; } catch { return null; }
+}
+
+/** Save an upload where it will survive. Uses the disk (MEDIA_DIR) when it is writable; on serverless hosting (read-only disk, e.g. Vercel) the image is kept in the
+ *  database instead and served by the same /uploads/<name> URL. Validation errors are returned, never thrown. */
+export async function saveUpload(repo: Repo, bytes: Uint8Array, dir = mediaDir()): Promise<{ ok: true; url: string } | { ok: false; status: number; error: string }> {
+  try { return await saveImage(bytes, dir); } catch { /* the disk cannot be written: fall through to the database */ }
+  const ext = sniffImage(bytes); if (!ext) return { ok: false, status: 415, error: "Upload a JPEG, PNG or WebP photo." };
+  const name = `${randomBytes(16).toString("hex")}.${ext}`;
+  await repo.docPut("upload", name, { type: TYPES[ext], data: Buffer.from(bytes).toString("base64") }); return { ok: true, url: `/uploads/${name}` };
+}
+/** Read an upload from the disk, or from the database when it was stored there. */
+export async function readStoredUpload(repo: Repo, name: string, dir = mediaDir()): Promise<{ bytes: Buffer; type: string } | null> {
+  const disk = await readUpload(name, dir); if (disk) return disk;
+  if (!/^[a-f0-9]{32}\.(jpg|png|webp)$/.test(name)) return null;
+  const d = await repo.docGet<{ type: string; data: string }>("upload", name); return d ? { bytes: Buffer.from(d.data, "base64"), type: d.type } : null;
 }
