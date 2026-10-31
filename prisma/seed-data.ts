@@ -313,5 +313,11 @@ async function seedCatering(repo: Repo, log: Log) {
 }
 
 export async function seedAll(repo: Repo, log: Log = console.log) {
-  await seedMenu(repo, log); await seedOrdering(repo, log); await seedSite(repo, log); await seedVocational(repo, log); await seedCatering(repo, log);
+  // Each area is independent: one failing does not stop the rest, and everything is safe to re-run.
+  const steps: [string, () => Promise<void>][] = [["menu", () => seedMenu(repo, log)], ["delivery and pickup", () => seedOrdering(repo, log)], ["website content", () => seedSite(repo, log)], ["vocational studies", () => seedVocational(repo, log)], ["event catering", () => seedCatering(repo, log)]];
+  const failed: string[] = [];
+  for (const [name, run] of steps) { try { await run(); } catch (e) { failed.push(name); log(`FAILED  ${name}: ${(e as Error).message}`); } }
+  const live = !!(await repo.docGet("content", "regular-3y"));
+  log(`\nDatabase now holds: ${(await repo.listItems()).length} menu items, ${live ? "programme details saved" : "NO programme details"}, ${(await repo.docList("portfolio")).length} programme photos, ${(await repo.docList("cgallery")).length} catering photos.`);
+  if (failed.length) throw new Error(`Problems in: ${failed.join(", ")}. The other areas were seeded. Fix the error above and run the seed again.`);
 }

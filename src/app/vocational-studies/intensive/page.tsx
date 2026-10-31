@@ -6,8 +6,9 @@ import { getRepo } from "@/server/runtime";
 export const metadata: Metadata = { title: "Intensive Programme (1, 3 or 6 months)", description: "Compare the 1-month, 3-month and 6-month Everfresh Intensive programmes and apply." };
 export const dynamic = "force-dynamic";
 export default async function IntensivePage() {
-  const { content } = await publicVocational(await getRepo());
+  const { content, portfolio } = await publicVocational(await getRepo());
+  const p = portfolio.find((i) => i.kind === "project");
   return (
-    <IntensiveView content={content} />
+    <IntensiveView content={content} photo={p ? { src: p.imageUrl, alt: p.imageAlt } : null} />
   );
 }

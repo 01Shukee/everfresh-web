@@ -33,10 +33,13 @@ export function ItemDialog({ item, onClose, maxQty }: { item: PublicItem | null;
     const names = item.addOnGroups.flatMap((g) => g.options).filter((o) => addOnIds.includes(o.id)).map((o) => o.name);
     const vname = item.variants.find((v) => v.id === variant)?.name;
     add({ itemId: item.id, variantId: variant, addOnIds, qty, note: note.trim(), name: item.name, label: [vname, ...names].filter(Boolean).join(" · ") || "Standard", estKobo: unit });
-    onClose(); setOpen(true);
+    onClose();
+    // Phones: the floating cart bar confirms the add, so go back to the menu. Larger screens keep opening the cart.
+    if (!window.matchMedia("(max-width: 720px)").matches) setOpen(true);
   };
   return (
     <dialog ref={ref} className="itemdlg" aria-labelledby="item-title" onClose={onClose} onClick={(e) => { if (e.target === ref.current) onClose(); }}>
+      <button type="button" className="dlg-x" onClick={onClose} aria-label="Close">&times;</button>
       <div className="itemdlg-in">
         <MediaSlot media={item.imageUrl ? { src: item.imageUrl, alt: item.imageAlt, width: 600, height: 600 } : null} label={item.name.toUpperCase()} shape="circle" className="dlg-img" />
         <div>
@@ -50,7 +53,7 @@ export function ItemDialog({ item, onClose, maxQty }: { item: PublicItem | null;
                   {o.name}{!o.available && " (unavailable)"}<span className="tab">{o.priceKobo ? `+${formatNaira(o.priceKobo)}` : "Free"}</span></label>); })}</div></fieldset>); })}
           <label className="field"><span className="lab">Note for the kitchen (optional)</span><input value={note} maxLength={140} onChange={(e) => setNote(e.target.value)} /></label>
           <div className="dlg-foot"><Stepper value={qty} onChange={setQty} max={maxQty} label="quantity" />
-            <button className="pill" onClick={submit} disabled={problems.length > 0}>Add to cart · {formatNaira(unit * qty)}</button></div>
+            <button className="pill" onClick={submit} disabled={problems.length > 0}>{problems.length > 0 ? problems[0].replace(/\.$/, "") : `Add to cart · ${formatNaira(unit * qty)}`}</button></div>
           {problems.length > 0 && <p className="hint" role="status">{problems[0]}</p>}
           <button className="linkbtn" onClick={onClose}>Cancel</button>
         </div>

@@ -24,3 +24,9 @@
 Email address, street address, city, social links and map link (the footer keeps its "not supplied" markers), the staff notification email, videos (no video files were supplied), real testimonials (need the person's permission), and `vocConfig.paymentTerms` / `nextSteps` (these live in `src/config/vocational.ts`, not in the admin).
 
 Before going live: confirm or change the sample prices, fees, delivery fees and hours, and switch **Accepting applications** off for any programme whose details are not final.
+
+## Hiding "[... TO BE SUPPLIED]" markers on the live site
+
+Every `[SOMETHING: TO BE SUPPLIED]` marker, `[ADDRESS]`, `[EMAIL]`, "PHOTO SLOT" box and "photo needed" caption is controlled by one setting: `NEXT_PUBLIC_SHOW_PLACEHOLDERS`. It shows them unless it is `false`. On Vercel set it to `false` (Project Settings > Environment Variables) and **redeploy** (it is baked in at build time). Anything still unset then simply does not appear, instead of showing a marker.
+
+If the live site still says "Programme details are being prepared" or shows `[PROGRAMME SUMMARY: TO BE SUPPLIED]`, the programme content is not in the database that site reads. Run `npm run db:seed` against that same `DATABASE_URL`; it now prints one line per area and a final "Database now holds..." summary, and names any area that failed.

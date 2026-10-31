@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { MediaSlot } from "@/components/ui/MediaSlot";
+import { HeroPhoto } from "@/components/ui/HeroPhoto";
 import { Button } from "@/components/ui/Button";
 import { Tbc } from "@/components/voc/Bits";
 import type { SiteSettings } from "@/server/site/settings";
@@ -9,14 +10,14 @@ const Block = ({ title, text, href, cta }: { title: string; text: string | null;
   <article className="abox"><h3 className="serif">{title}</h3><p>{text ?? <Tbc what={`${title} information`} />}</p><Button href={href} tone="ghost" small>{cta}</Button></article>);
 
 export function AboutView({ s }: { s: SiteSettings }) {
-  const a = s.about;
+  const a = s.about; const hp = a.photos[0]; const pics = a.photos.length > 1 ? a.photos.slice(1) : a.photos; // the first photo is the page hero
   return (
     <>
-      <section className="vhero gridbg"><div className="wrap">
+      <section className="vhero gridbg"><div className={`wrap phero ${hp ? "has-photo" : ""}`}><div>
         <span className="lab green">About Us</span>
         <h1 className="serif page-title big2">About <em>{s.business.name}.</em></h1>
         <p className="lede">{a.intro ?? s.business.description ?? <Tbc what="Business introduction" />}</p>
-      </div></section>
+      </div><HeroPhoto photo={hp ? { src: hp.url, alt: hp.alt } : null} /></div></section>
       <section className="sec" aria-labelledby="am"><div className="wrap grid2">
         <div><span className="lab green">Our mission and values</span><h2 id="am" className="serif green">What we stand for.</h2>{a.mission ? <p className="measure">{a.mission}</p> : <p><Tbc what="Mission" /></p>}</div>
         <ul className="list">{a.values.length ? a.values.map((v) => <li className="bn" key={v}><span className="serif">{v}</span></li>) : <li className="bn"><Tbc what="Values" /></li>}</ul>
@@ -26,16 +27,16 @@ export function AboutView({ s }: { s: SiteSettings }) {
         <div className="aboxes"><Block title="Food ordering" text={a.foodInfo} href="/order-food" cta="Order food" /><Block title="Vocational training" text={a.vocationalInfo} href="/vocational-studies" cta="Explore programmes" /><Block title="Event catering" text={a.cateringInfo} href="/event-catering" cta="Request a quote" /></div></div></section>
       {a.credentials.length > 0 && <section className="sec white" aria-labelledby="ac"><div className="wrap"><span className="lab green">Credentials</span><h2 id="ac" className="serif green">Confirmed credentials.</h2><ul className="list">{a.credentials.map((c) => <li className="bn" key={c}><span className="serif">{c}</span></li>)}</ul></div></section>}
       <section className="sec" aria-labelledby="ap"><div className="wrap"><span className="lab green">In pictures</span><h2 id="ap" className="serif ital2">Our kitchen, our people, our work.</h2>
-        <ul className="cgal">{a.photos.length ? a.photos.map((p, n) => <li key={p.id} className={`cg cg${n % 5}`}><MediaSlot media={{ src: p.url, alt: p.alt, width: 600, height: 760 }} label={p.alt} shape="arch" className="cg-img" />{p.caption && <p className="small">{p.caption}</p>}</li>) : [0, 1, 2].map((n) => <li key={n} className={`cg cg${n}`}><MediaSlot label="GENUINE PHOTO" shape="arch" className="cg-img" /></li>)}</ul></div></section>
+        <ul className="cgal">{pics.length ? pics.map((p, n) => <li key={p.id} className={`cg cg${n % 5}`}><MediaSlot media={{ src: p.url, alt: p.alt, width: 600, height: 760 }} label={p.alt} shape="arch" className="cg-img" />{p.caption && <p className="small">{p.caption}</p>}</li>) : [0, 1, 2].map((n) => <li key={n} className={`cg cg${n}`}><MediaSlot label="GENUINE PHOTO" shape="arch" className="cg-img" /></li>)}</ul></div></section>
     </>
   );
 }
 
 export function ContactView({ s, whatsapp }: { s: SiteSettings; whatsapp: string | null }) {
-  const c = s.contact; const tel = c.phone?.replace(/[^\d+]/g, ""); const faqs = s.faqs.filter((f) => f.published).sort((a, b) => a.sort - b.sort);
+  const hp = s.homepage.heroImages.catering; const c = s.contact; const tel = c.phone?.replace(/[^\d+]/g, ""); const faqs = s.faqs.filter((f) => f.published).sort((a, b) => a.sort - b.sort);
   return (
     <>
-      <section className="vhero gridbg"><div className="wrap"><span className="lab green">Contact Us</span><h1 className="serif page-title big2">Let&rsquo;s <em>talk.</em></h1><p className="lede">Reach us by phone, WhatsApp or the form below.</p></div></section>
+      <section className="vhero gridbg"><div className={`wrap phero ${hp ? "has-photo" : ""}`}><div><span className="lab green">Contact Us</span><h1 className="serif page-title big2">Let&rsquo;s <em>talk.</em></h1><p className="lede">Reach us by phone, WhatsApp or the form below.</p></div><HeroPhoto photo={hp ? { src: hp.url, alt: hp.alt } : null} /></div></section>
       <section className="sec" aria-labelledby="cd"><div className="wrap cgrid">
         <div>
           <h2 id="cd" className="serif green">Get in touch</h2>

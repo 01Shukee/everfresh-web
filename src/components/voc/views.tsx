@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HeroPhoto } from "@/components/ui/HeroPhoto";
 import { formatNaira } from "@/lib/money";
 import { ProgrammeCards } from "./ProgrammeCards";
 import { VocHero } from "./VocHero";
@@ -30,27 +31,27 @@ export function VocLandingView({ pub }: { pub: Pub }) {
   );
 }
 
-export function RegularView({ c }: { c: VariantContent }) {
+export function RegularView({ c, photo }: { c: VariantContent; photo?: { src: string; alt: string } | null }) {
   return (
     <>
-      <section className="vhero gridbg"><div className="wrap">
+      <section className="vhero gridbg"><div className={`wrap phero ${photo ? "has-photo" : ""}`}><div>
         <span className="lab green">Vocational Studies &middot; Regular Programme</span>
         <h1 className="serif page-title big2">Three years of <em>practical training.</em></h1>
         <p className="lede">The Regular Programme runs for 3 years.</p>
-      </div></section>
+      </div><HeroPhoto photo={photo} /></div></section>
       <section className="sec gridbg"><div className="wrap">{c.published ? <VariantBody c={c} /> : <div className="empty"><p className="serif empty-title">Programme details are being prepared.</p><p>Course information, admission requirements and fees will appear here once the institution confirms them.</p></div>}</div></section>
     </>
   );
 }
 
-export function IntensiveView({ content }: { content: Record<string, VariantContent> }) {
+export function IntensiveView({ content, photo }: { content: Record<string, VariantContent>; photo?: { src: string; alt: string } | null }) {
   return (
     <>
-      <section className="vhero gridbg"><div className="wrap">
+      <section className="vhero gridbg"><div className={`wrap phero ${photo ? "has-photo" : ""}`}><div>
         <span className="lab green">Vocational Studies &middot; Intensive Programme</span>
         <h1 className="serif page-title big2">Focused training in <em>1, 3 or 6 months.</em></h1>
         <p className="lede">Compare the three durations side by side. Each has its own course information, fees and application.</p>
-      </div></section>
+      </div><HeroPhoto photo={photo} /></div></section>
       <IntensiveCompare content={content} />
     </>
   );
