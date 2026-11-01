@@ -16,7 +16,7 @@ const stage = {
 type HI = { url: string; alt: string } | null;
 export function Hero({ contact, heroImages }: { contact: { hours: string[]; city: string | null }; heroImages: { food: HI; studies: HI; catering: HI } }) {
   const [i, setI] = useState(0);
-  const d = doors[i], s = stage[d.key], hi = heroImages[d.key], m = hi ? { src: hi.url, alt: hi.alt, width: 800, height: 1000 } : null;
+  const d = doors[i], s = stage[d.key], hi = heroImages[d.key], m = hi ? { src: hi.url, alt: hi.alt, width: 800, height: s.shape === "circle" ? 800 : 1000 } : null;
   return (
     <section className="wrap hero" aria-labelledby="h1">
       <div className="rise">

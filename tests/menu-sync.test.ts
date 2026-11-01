@@ -73,3 +73,19 @@ test("images: a real photo wins over the drawing, a drawing is used only for the
   const rep = await syncMenu(repo, { log: quiet, publicDir: dir, imagesOnly: true });
   assert.deepEqual(rep.imagesSet, ["Fried Rice"]); assert.equal((await get("Spaghetti")).imageAlt, "Ours"); assert.equal((await get("Fried Rice")).imageUrl, "/media/food/ng/fried-rice.jpg");
 });
+
+test("the supplied menu comes first: its categories and dishes lead, other order is preserved, and it is safe to repeat", async () => {
+  const repo = await sampleRepo(); const beforeOthers = (await repo.listCategories()).filter((c) => !["Main Meals", "Soups and Special Dishes", "Protein and Extras"].includes(c.name)).map((c) => c.name);
+  await syncMenu(repo, { log: quiet, publicDir }); const cats = await repo.listCategories();
+  assert.deepEqual(cats.slice(0, 3).map((c) => c.name), ["Main Meals", "Soups and Special Dishes", "Protein and Extras"]);
+  assert.deepEqual(cats.slice(3).map((c) => c.name).filter((n) => beforeOthers.includes(n)), beforeOthers, "other categories keep their relative order");
+  const items = (await repo.listItems()).filter((i) => i.active); assert.deepEqual(items.slice(0, 3).map((i) => i.name), ["Jollof Rice", "White Rice and Sauce", "Fried Rice"]);
+  assert.deepEqual(items.slice(0, 21).map((i) => i.name), MENU.map((m) => m.name));
+  const again = await syncMenu(repo, { log: quiet, publicDir, reorderOnly: true }); assert.equal(again.reordered, 0);
+});
+test("reorderOnly fixes an already-imported database whose categories were appended after the cakes", async () => {
+  const repo = await sampleRepo(); await syncMenu(repo, { log: quiet, publicDir });
+  for (const c of await repo.listCategories()) await repo.saveCategory({ ...c, sort: c.name === "Main Meals" ? 50 : c.name.startsWith("Soups and Special") ? 51 : c.name === "Protein and Extras" ? 52 : c.sort });
+  assert.equal((await repo.listCategories())[0].name !== "Main Meals", true);
+  const r = await syncMenu(repo, { log: quiet, publicDir, reorderOnly: true }); assert.ok(r.reordered! > 0); assert.equal((await repo.listCategories())[0].name, "Main Meals");
+});

@@ -14,8 +14,8 @@ import type { Repo } from "../src/server/repo";
 import type { Category, MenuItem } from "../src/server/types";
 import { CATEGORIES, MENU, SAMPLE_CATEGORIES, SAMPLE_DISHES, type MenuSeed } from "./menu-data";
 
-export interface SyncOptions { force?: boolean; keepSamples?: boolean; imagesOnly?: boolean; dryRun?: boolean; publicDir?: string; log?: (m: string) => void }
-export interface SyncReport { created: string[]; replaced: string[]; keptAsIs: string[]; retired: string[]; retiredCategories: string[]; imagesSet: string[]; skipped?: string }
+export interface SyncOptions { reorderOnly?: boolean; force?: boolean; keepSamples?: boolean; imagesOnly?: boolean; dryRun?: boolean; publicDir?: string; log?: (m: string) => void }
+export interface SyncReport { reordered?: number; created: string[]; replaced: string[]; keptAsIs: string[]; retired: string[]; retiredCategories: string[]; imagesSet: string[]; skipped?: string }
 
 const MARKER = "everfresh-menu-v1";
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -37,6 +37,7 @@ export async function syncMenu(repo: Repo, opts: SyncOptions = {}): Promise<Sync
   const rep: SyncReport = { created: [], replaced: [], keptAsIs: [], retired: [], retiredCategories: [], imagesSet: [] };
 
   if (opts.imagesOnly) return attachImages(repo, publicDir, dry, log, rep);
+  if (opts.reorderOnly) { rep.reordered = await putMenuFirst(repo, dry, log); log(`${tag}${rep.reordered} sort position(s) updated: Main Meals, Soups and Special Dishes and Protein and Extras now come first.`); return rep; }
   if (!opts.force && (await repo.docGet("meta", MARKER))) { rep.skipped = "The Everfresh menu was already imported. Nothing changed. Use --force to run it again (dishes you edited are still protected)."; log(rep.skipped); return rep; }
 
   // categories: reuse by name, create the rest after the existing ones
@@ -68,6 +69,7 @@ export async function syncMenu(repo: Repo, opts: SyncOptions = {}): Promise<Sync
       for (const c of all) if (c.active && SAMPLE_CATEGORIES.some((n) => norm(n) === norm(c.name)) && !after.some((i) => i.categoryId === c.id && i.active)) { rep.retiredCategories.push(c.name); log(`switched off empty sample category: ${c.name}`); await must(c.name, saveCategory(repo, { name: c.name, sort: c.sort, active: false }, c.id)); }
     }
   }
+  rep.reordered = await putMenuFirst(repo, dry, log);
   if (!dry) await repo.docPut("meta", MARKER, { at: new Date().toISOString(), created: rep.created.length, replaced: rep.replaced.length });
   log(`${tag}done: ${rep.created.length} added, ${rep.replaced.length} replaced, ${rep.keptAsIs.length} kept, ${rep.retired.length} sample dishes switched off.`);
   return rep;
@@ -84,4 +86,18 @@ async function attachImages(repo: Repo, publicDir: string, dry: boolean, log: (m
     if (!dry) await must(seed.name, saveItem(repo, { ...it, imageUrl: pic.url, imageAlt: pic.alt }, it.id));
   }
   log(`${rep.imagesSet.length} dish photo(s) attached.`); return rep;
+}
+
+/** Puts the supplied menu first: its three categories lead (in the order of CATEGORIES) and its dishes lead (in the order of MENU). Everything else keeps its relative order after them.
+ *  Only sort numbers change, and only where they differ, so it is safe to run again at any time. Returns how many records changed. */
+export async function putMenuFirst(repo: Repo, dry = false, log: (m: string) => void = () => {}): Promise<number> {
+  let changed = 0;
+  const cats = await repo.listCategories(); const rank = (c: Category) => CATEGORIES.findIndex((n) => norm(n) === norm(c.name));
+  const catOrder = [...cats.filter((c) => rank(c) >= 0).sort((a, b) => rank(a) - rank(b)), ...cats.filter((c) => rank(c) < 0)];
+  for (const [n, c] of catOrder.entries()) if (c.sort !== n + 1) { changed++; if (!dry) await must(c.name, saveCategory(repo, { name: c.name, sort: n + 1, active: c.active }, c.id)); }
+  const items = await repo.listItems(); const pos = (i: MenuItem) => MENU.findIndex((m) => norm(m.name) === norm(i.name));
+  const itemOrder = [...items.filter((i) => pos(i) >= 0).sort((a, b) => pos(a) - pos(b)), ...items.filter((i) => pos(i) < 0)];
+  for (const [n, i] of itemOrder.entries()) if (i.sort !== n) { changed++; if (!dry) await must(i.name, saveItem(repo, { ...i, sort: n }, i.id)); }
+  if (changed) log(`${dry ? "[dry run] " : ""}menu order updated (${changed} change(s))`);
+  return changed;
 }

@@ -29,10 +29,7 @@ const ph = (query: string, match: string, alt: string): MenuPhoto => ({ commons:
 export const MENU: MenuSeed[] = [
   // ---- MAIN MEALS
   { slug: "jollof-rice", name: "Jollof Rice", category: "Main Meals", priceNaira: 2500, description: "Nigerian jollof rice.", tags: ["rice"], replaces: ["Party Jollof Rice"],
-    fallback: { img: "food/illustrations/jollof-rice", alt: "Illustration of jollof rice" }, photo: {
-  ...ph("Nigerian jollof rice", "jollof", "A plate of Nigerian jollof rice"),
-  commons: "File:A Nigeria Jollof Rice with chicken.jpg"
-} },
+    fallback: { img: "food/illustrations/jollof-rice", alt: "Illustration of jollof rice" }, photo: ph("Nigerian jollof rice", "jollof", "A plate of Nigerian jollof rice") },
   { slug: "white-rice-and-sauce", name: "White Rice and Sauce", category: "Main Meals", priceNaira: 2500, description: "Steamed white rice served with sauce.", tags: ["rice"], replaces: ["White Rice and Stew"],
     fallback: { img: "food/illustrations/rice-and-stew", alt: "Illustration of white rice with red sauce" }, photo: ph("white rice and stew Nigeria", "white rice|rice and (stew|sauce)", "A plate of white rice with red sauce") },
   { slug: "fried-rice", name: "Fried Rice", category: "Main Meals", priceNaira: 2500, description: "Nigerian fried rice.", tags: ["rice"], replaces: ["Nigerian Fried Rice"],

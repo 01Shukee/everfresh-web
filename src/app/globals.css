@@ -69,6 +69,8 @@ h1 em { font-weight: 600; } .lede { max-width: 46ch; font-size: 19px; margin: 0 
 .ring circle { fill: none; stroke: var(--ef-amber); stroke-width: 5; stroke-linecap: round; animation: draw 1s var(--ease) forwards; }
 @keyframes draw { from { stroke-dasharray: 0 100; } to { stroke-dasharray: 58 100; } }
 .stage .hero-food { left: 4%; top: 2%; width: 92%; aspect-ratio: 1; background-color: var(--ef-green); color: #fff; }
+/* A real <img> ignores inset stretching and falls back to its width/height attributes, so give each hero shape an explicit box that matches its placeholder; object-fit: cover crops any photo shape to it. */
+.stage img.hero-food { height: auto; } .stage img.hero-studies, .stage img.hero-catering { left: 0; top: 0; width: 100%; height: 86%; }
 .stage .hero-studies { inset: 0 0 14% 0; background-color: var(--ef-green-deep); background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.16) 0 1px, transparent 1px 12.5%); color: #fff; }
 .stage .hero-catering { inset: 0 0 14% 0; }
 .stage > .rise { position: absolute; inset: 0; }
@@ -78,7 +80,7 @@ h1 em { font-weight: 600; } .lede { max-width: 46ch; font-size: 19px; margin: 0 
 .slot { display: flex; align-items: center; justify-content: center; text-align: center; padding: 16px; font-size: 12px; font-weight: 700; letter-spacing: .04em; background-color: var(--ef-sand); color: var(--ef-green-deep);
   background-image: radial-gradient(circle at 20% 30%, rgba(46,158,52,.14) 0 14px, transparent 15px), radial-gradient(circle at 70% 70%, rgba(46,158,52,.1) 0 22px, transparent 23px); }
 .media, .slot { border-radius: var(--radius); } .circle { border-radius: 50% !important; } .arch { border-radius: 999px 999px var(--radius) var(--radius) !important; }
-.media { object-fit: cover; display: block; } .tall { min-height: 440px; width: 100%; }
+.media { object-fit: cover; display: block; } :where(img.media) { height: auto; } /* attribute heights (e.g. height="480") must never stretch a photo; any class or inline height still wins */ .tall { min-height: 440px; width: 100%; }
 /* sections */
 .food { background: var(--ef-green); color: var(--ef-cream); }
 .food .big { font-size: clamp(2.6rem, 7vw, 6rem); } .chipl { background: var(--ef-green-deep); padding: 6px 14px; border-radius: var(--pill); }
@@ -101,7 +103,7 @@ h1 em { font-weight: 600; } .lede { max-width: 46ch; font-size: 19px; margin: 0 
 .screen { aspect-ratio: 16/9; background: #14501e; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; overflow: hidden; } .screen video { width: 100%; height: 100%; }
 .empty-video { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; padding: 16px; } .playbtn { width: 72px; height: 72px; padding: 0; justify-content: center; }
 .list { list-style: none; padding: 0; margin: 0; border-bottom: 1px solid var(--ef-line); } .list:hover .bn:not(:hover) { opacity: .4; }
-.bn { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; padding: 20px 0; border-top: 1px solid var(--ef-line); transition: opacity var(--t-base); font-size: clamp(1.3rem, 2.6vw, 2rem); color: var(--ef-green-deep); }
+.bn { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; align-items: baseline; padding: 20px 0; border-top: 1px solid var(--ef-line); transition: opacity var(--t-base); font-size: clamp(1.3rem, 2.6vw, 2rem); color: var(--ef-green-deep); }
 .quote { margin: 0; } .quote blockquote { font-size: clamp(1.6rem, 3.6vw, 3rem); margin: 0 0 12px; color: var(--ef-green-deep); }
 .cta { font-size: clamp(2.2rem, 5.6vw, 5rem); line-height: 1.25; letter-spacing: -.02em; font-weight: 800; color: var(--ef-green-deep); text-wrap: balance; margin: 0; }
 .cta a { display: inline-block; border: 3px solid var(--ef-green-deep); border-radius: var(--pill); padding: 0 .35em; line-height: 1.1; transition: background var(--t-micro), color var(--t-micro); } .cta a:hover { background: var(--ef-green-deep); color: #fff; }

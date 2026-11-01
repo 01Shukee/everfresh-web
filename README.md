@@ -130,3 +130,7 @@ A dish with no photo shows a drawing only where a drawing of the SAME dish exist
 
 ## Photo uploads on serverless hosting (Vercel)
 The disk on Vercel is read-only, so uploads cannot be written to `MEDIA_DIR`. `saveUpload` (src/server/media.ts) writes to the disk when it can and otherwise stores the image in the database (`upload` collection), served from the same `/uploads/<name>` URL. The admin upload button also shrinks large phone photos (max 1600 px, JPEG) before sending, because Vercel rejects request bodies over about 4.5 MB. With a persistent disk (Docker/VPS) nothing changes.
+
+## Menu order and hero photos
+- Put the supplied menu first (Main Meals, Soups and Special Dishes, Protein and Extras, then everything else) on an already-imported database: `npm run db:seed-menu -- --reorder`. It only changes sort numbers, only where they differ, and is safe to repeat. New imports do this automatically.
+- Hero and other homepage photos are cropped to a fixed frame per door (circle, rectangle, arch) with `object-fit: cover`, so any photo shape fits. Phone photos are resized to 1600 px before upload.
