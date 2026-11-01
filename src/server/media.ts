@@ -22,10 +22,14 @@ export async function readUpload(name: string, dir = mediaDir()): Promise<{ byte
   const m = /^[a-f0-9]{32}\.(jpg|png|webp)$/.exec(name); if (!m) return null; try { return { bytes: await readFile(join(dir, name)), type: TYPES[m[1]] }; } catch { return null; }
 }
 
-/** Save an upload where it will survive. Uses the disk (MEDIA_DIR) when it is writable; on serverless hosting (read-only disk, e.g. Vercel) the image is kept in the
- *  database instead and served by the same /uploads/<name> URL. Validation errors are returned, never thrown. */
+/** Where new uploads go. With a database configured they are stored IN the database: the same data every environment shares, so a photo uploaded from a laptop, a preview or the
+ *  live admin is visible everywhere. (Saved on a disk, the file would exist only on that one machine while the database held its address, which shows as a broken image on the live site.)
+ *  Without a database (local development) the disk is used. MEDIA_STORAGE=disk or MEDIA_STORAGE=database overrides this, e.g. disk for a server with a persistent volume. */
+export const storeInDatabase = () => process.env.MEDIA_STORAGE === "database" || (process.env.MEDIA_STORAGE !== "disk" && !!process.env.DATABASE_URL);
+
 export async function saveUpload(repo: Repo, bytes: Uint8Array, dir = mediaDir()): Promise<{ ok: true; url: string } | { ok: false; status: number; error: string }> {
-  try { return await saveImage(bytes, dir); } catch { /* the disk cannot be written: fall through to the database */ }
+  if (!storeInDatabase()) { try { return await saveImage(bytes, dir); } catch { /* the disk cannot be written (read-only hosting): fall through to the database */ } }
+  if (bytes.length === 0) return { ok: false, status: 422, error: "That file is empty." }; if (bytes.length > MAX_IMAGE_BYTES) return { ok: false, status: 413, error: "Images can be up to 5 MB." };
   const ext = sniffImage(bytes); if (!ext) return { ok: false, status: 415, error: "Upload a JPEG, PNG or WebP photo." };
   const name = `${randomBytes(16).toString("hex")}.${ext}`;
   await repo.docPut("upload", name, { type: TYPES[ext], data: Buffer.from(bytes).toString("base64") }); return { ok: true, url: `/uploads/${name}` };

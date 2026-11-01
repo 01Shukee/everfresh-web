@@ -12,6 +12,7 @@
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed-menu": "tsx prisma/seed-menu.ts",
+    "db:import-uploads": "tsx prisma/import-uploads.ts",
     "food-images": "tsx scripts/food-images.ts",
     "postinstall": "prisma generate"
   },
