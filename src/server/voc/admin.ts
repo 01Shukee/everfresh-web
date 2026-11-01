@@ -1,4 +1,3 @@
-import { cleanImageUrl, IMAGE_URL_HELP } from "../image-url";
 import { randomUUID } from "node:crypto";
 import { variantById, vocConfig } from "../../config/vocational";
 import { newRef } from "../../lib/ids";
@@ -93,22 +92,28 @@ export async function saveContent(repo: Repo, variantId: string, raw: unknown): 
 }
 
 type MediaKind = "portfolio" | "video" | "testimonial";
-/** A new photo or video goes to the front (one place before the current first), so what was just added is what visitors see, until you set a display order yourself. */
-export const firstSort = async (repo: Repo, kind: string) => Math.min(0, ...(await repo.docList<{ sort?: number }>(kind)).map((x) => x.sort ?? 0)) - 1;
+/** True when the URL's path (not its query or fragment) ends with the pattern, for site paths and https links alike. */
+const pathEndsWith = (u: string, re: RegExp) => { try { return re.test(new URL(u, "https://site.invalid").pathname); } catch { return false; } };
 export async function listMedia(repo: Repo, kind: MediaKind) { return (await repo.docList<{ sort?: number }>(kind)).sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0)); }
 export async function saveMedia(repo: Repo, kind: MediaKind, raw: unknown, id?: string): Promise<ApiResult> {
-  if (!isRec(raw)) return bad("Invalid request."); const rid = id ?? randomUUID(); const prev = id ? await repo.docGet<{ sort?: number }>(kind, id) : null; const sort = Number.isInteger(raw.sort) ? (raw.sort as number) : prev ? (prev.sort ?? 0) : await firstSort(repo, kind); const published = raw.published === true;
-  const url = (v: unknown) => cleanImageUrl(s(v, 400));
+  if (!isRec(raw)) return bad("Invalid request."); const rid = id ?? randomUUID(); const sort = Number.isInteger(raw.sort) ? (raw.sort as number) : 0; const published = raw.published === true;
+  const url = (v: unknown) => { const x = s(v, 400); return /^(\/(media|uploads)\/[\w\-./]+|https:\/\/[^\s]+)$/.test(x) ? x : null; };
   let item: PortfolioItem | VideoItem | Testimonial;
   if (kind === "portfolio") {
     const img = url(raw.imageUrl); const kinds = ["project", "student", "instructor", "facility"];
-    if (!img || !kinds.includes(raw.kind as string) || !s(raw.title, 100) || !s(raw.imageAlt, 140)) return bad(`A photo needs a type, a title, alt text and a usable image address. ${IMAGE_URL_HELP}`);
+    if (!img || !kinds.includes(raw.kind as string) || !s(raw.title, 100) || !s(raw.imageAlt, 140)) return bad("A photo needs a type, title, image path or https URL, and alt text.");
     const vid = raw.variantId ? variantById(raw.variantId) : null; if (raw.variantId && !vid) return bad("Unknown programme option.");
     item = { id: rid, kind: raw.kind as PortfolioItem["kind"], title: s(raw.title, 100), caption: s(raw.caption, 300), imageUrl: img, imageAlt: s(raw.imageAlt, 140), variantId: (vid?.id ?? null) as PortfolioItem["variantId"], published, sort };
   } else if (kind === "video") {
-    const src = url(raw.src); if (!src || !s(raw.title, 100)) return bad("A video needs a title and a /media/... path or https URL."); const cap = raw.captions ? url(raw.captions) : null; if (raw.captions && !cap) return bad("Captions must be a /media/... path or https URL.");
+    const src = url(raw.src); if (!src || !s(raw.title, 100)) return bad("A video needs a title and an uploaded video or a /media/... path or https URL."); const cap = raw.captions ? url(raw.captions) : null; if (raw.captions && !cap) return bad("Captions must be an uploaded file, a /media/... path or an https URL.");
+    // New and published videos must point at a real file: a Streamable/YouTube/Instagram page link is a web page, so the browser's video player cannot play it. Unpublishing an older item is always allowed.
+    if (published || !id) {
+      if (!pathEndsWith(src, /\.(mp4|m4v|mov|webm|ogv)$/i)) return bad("That video link is a web page, not a video file, so it cannot play on the website. Upload the video file here, or paste a direct link that ends in .mp4 or .webm.");
+      if (cap && !pathEndsWith(cap, /\.vtt$/i)) return bad("Captions must be a WebVTT file ending in .vtt. Upload one here or paste a direct link to it.");
+    }
     if (published && !cap) return bad("Add a captions file before publishing a video (accessibility).");
-    item = { id: rid, title: s(raw.title, 100), description: s(raw.description, 400), src, poster: raw.poster ? url(raw.poster) : null, captions: cap, published, sort };
+    const poster = raw.poster ? url(raw.poster) : null; if (raw.poster && !poster) return bad("The poster image must be an uploaded file, a /media/... path or an https URL.");
+    item = { id: rid, title: s(raw.title, 100), description: s(raw.description, 400), src, poster, captions: cap, published, sort };
   } else {
     if (!s(raw.quote, 600) || !s(raw.name, 80)) return bad("A testimonial needs a quote and a name."); if (published && raw.permission !== true) return bad("Written permission must be confirmed before a testimonial is published.");
     item = { id: rid, quote: s(raw.quote, 600), name: s(raw.name, 80), relation: s(raw.relation, 80), permission: raw.permission === true, published };
@@ -126,4 +131,13 @@ export async function publicVocational(repo: Repo) {
     portfolio: pub(await repo.docList<PortfolioItem>("portfolio")), videos: pub(await repo.docList<VideoItem>("video")),
     testimonials: (await repo.docList<Testimonial>("testimonial")).filter((t) => t.published && t.permission),
   };
+}
+export async function firstSort(repo: Repo, collection: string): Promise<number> {
+  const items = await repo.docList<{ sort?: number }>(collection);
+
+  return items.reduce(
+    (highest, item) =>
+      Number.isFinite(item.sort) ? Math.max(highest, item.sort!) : highest,
+    -1
+  ) + 1;
 }

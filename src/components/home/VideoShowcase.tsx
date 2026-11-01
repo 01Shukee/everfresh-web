@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { VideoPlayer } from "@/components/ui/VideoPlayer";
 
 export interface HomeVideo { id: string; name: string; src: string | null; poster: string | null; captions: string | null }
 const PLACEHOLDER: HomeVideo[] = [{ id: "kitchen", name: "Kitchen", src: null, poster: null, captions: null }, { id: "workshop", name: "Workshop", src: null, poster: null, captions: null }, { id: "events", name: "Events", src: null, poster: null, captions: null }];
@@ -20,7 +21,7 @@ export function VideoShowcase({ videos }: { videos: HomeVideo[] }) {
         </div>
         <div className="screen">
           {v.src ? (
-            <video controls preload="none" poster={v.poster ?? undefined} src={v.src}>{v.captions && <track kind="captions" src={v.captions} srcLang="en" label="English" default />}</video>
+            <VideoPlayer key={v.id} src={v.src} poster={v.poster} captions={v.captions} title={v.name} />
           ) : (
             <div className="empty-video" role="status">
               <button className="pill cream playbtn" disabled aria-label={`${v.name} video not yet available`}>&#9654;</button>

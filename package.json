@@ -11,24 +11,22 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
-    "db:seed-menu": "tsx prisma/seed-menu.ts",
-    "db:import-uploads": "tsx prisma/import-uploads.ts",
-    "food-images": "tsx scripts/food-images.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "next": "^15.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
     "@prisma/client": "^6.0.0",
-    "playwright": "^1.48.0"
+    "@vercel/blob": "2.8.2",
+    "next": "^15.0.0",
+    "playwright": "^1.48.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^5.5.0",
     "prisma": "^6.0.0",
-    "tsx": "^4.19.0"
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
   }
 }

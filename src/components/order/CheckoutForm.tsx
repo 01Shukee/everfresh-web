@@ -12,6 +12,11 @@ const keyFor = (fp: string) => {   // same checkout content => same idempotency 
   try { let v = sessionStorage.getItem(k); if (!v) { v = crypto.randomUUID().replace(/-/g, ""); sessionStorage.setItem(k, v); } return v; } catch { return crypto.randomUUID().replace(/-/g, ""); }
 };
 
+/** Declared at module level on purpose: a component created inside the form's render gets a new identity on every keystroke, so React remounts the input and it loses focus. */
+function F({ id, label, err, children }: { id: string; label: string; err?: string; children: React.ReactNode }) {
+  return (<div className={`field ${err ? "bad" : ""}`}><label htmlFor={id}>{label}</label>{children}{err && <p className="err" id={`${id}-e`}>{err}</p>}</div>);
+}
+
 export function CheckoutForm() {
   const { lines, ready, issues: cartIssues } = useCart();
   const [o, setO] = useState<OrderingPublic | null>(null); const [loadErr, setLoadErr] = useState(false);
@@ -54,7 +59,6 @@ export function CheckoutForm() {
       setBusy(false); setTick((n) => n + 1);
     } catch { setMsg("We couldn't reach the server. Nothing was charged. Please try again."); setBusy(false); setTick((n) => n + 1); }
   };
-  const F = ({ id, label, err, children }: { id: string; label: string; err?: string; children: React.ReactNode }) => (<div className={`field ${err ? "bad" : ""}`}><label htmlFor={id}>{label}</label>{children}{err && <p className="err" id={`${id}-e`}>{err}</p>}</div>);
   const total = quote?.totalKobo; const blocked = qIssues.length > 0 || cartIssues.length > 0 || !quote;
 
   return (

@@ -1,29 +1,51 @@
 import Link from "next/link";
-import { nav } from "@/config/site";
-import { Ph } from "@/components/ui/Placeholder";
+import { nav, showPlaceholders } from "@/config/site";
+import { normaliseWhatsAppNumber } from "@/server/catering/whatsapp";
 import type { SiteSettings } from "@/server/site/settings";
 
-export function SiteFooter({ s }: { s: Pick<SiteSettings, "business" | "contact" | "brand"> }) {
-  const c = s.contact;
+/** Every detail comes from the saved business settings (Admin > Website > Business and contact) or the site's own pages. A detail that has not been supplied is simply left out, never invented. */
+export function SiteFooter({ s, whatsapp }: { s: Pick<SiteSettings, "business" | "contact" | "brand">; whatsapp?: string | null }) {
+  const c = s.contact; const wa = whatsapp !== undefined ? whatsapp : normaliseWhatsAppNumber(c.whatsapp);
+  const tel = c.phone?.replace(/[^\d+]/g, ""); const place = [c.address, c.city].filter(Boolean).join(", ");
+  const year = new Date().getFullYear();
+  const about = s.business.description ?? `Order food, study a vocational programme, or plan an event with ${s.business.name}.`;
   return (
-    <footer className="foot dark" id="contact-details">
+    <footer className="foot dark" id="contact-details" aria-label="Site footer">
       <div className="wrap">
         <div className="fg">
-          <div>
+          <div className="fbrand">
             <div className="logo panel"><img className="mark" src={s.brand.emblemUrl ?? "/brand/everfresh-emblem-reference.jpg"} alt="" width={40} height={40} /><span className="serif wm">{s.business.name}</span></div>
-            {!s.brand.emblemUrl && <p className="small">Temporary logo from the supplied reference image. Vector artwork needed.</p>}
+            <p className="fabout">{about}</p>
+            {(tel || wa) && <div className="fcta">{tel && <a className="pill cream sm" href={`tel:${tel}`}>Call us</a>}{wa && <a className="pill cream sm" href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer">WhatsApp us</a>}</div>}
+            {!s.brand.emblemUrl && showPlaceholders && <p className="small">Temporary logo from the supplied reference image. Vector artwork needed.</p>}
           </div>
-          <div><b className="lab">Services</b>{nav.slice(1, 4).map((n) => <Link key={n.href} href={n.href}>{n.label}</Link>)}</div>
-          <div><b className="lab">Company</b><Link href="/about">About Us</Link><Link href="/contact">Contact Us</Link><Link href="/recover">Find my order or application</Link></div>
-          <div>
+          <nav className="fcol" aria-label="Our services">
+            <b className="lab">Our services</b>
+            {nav.slice(1, 4).map((n) => <Link key={n.href} href={n.href}>{n.label}</Link>)}
+            <Link href="/apply">Apply to study</Link>
+            <Link href="/event-catering#quote">Request a catering quote</Link>
+          </nav>
+          <nav className="fcol" aria-label="Customer information">
+            <b className="lab">Customer information</b>
+            <Link href="/about">About Us</Link>
+            <Link href="/contact">Contact Us and FAQs</Link>
+            <Link href="/recover">Find my order or application</Link>
+            <Link href="/order-food">Menu and online ordering</Link>
+          </nav>
+          <address className="fcol fcontact">
             <b className="lab">Contact</b>
-            <span className="line"><Ph k="ADDRESS" value={c.address} /></span>
-            <span className="line">{c.phone ? <a href={`tel:${c.phone.replace(/[^\d+]/g, "")}`}>{c.phone}</a> : <Ph k="PHONE" />} &middot; {c.email ? <a href={`mailto:${c.email}`}>{c.email}</a> : <Ph k="EMAIL" />}</span>
-            <span className="line">{c.hours.length ? c.hours.map((h) => <span key={h} className="block">{h}</span>) : <Ph k="OPENING HOURS" />}</span>
-            <span className="line">{c.social.length ? c.social.map((x) => <a key={x.url} href={x.url} rel="noopener">{x.label}</a>) : <Ph k="SOCIAL LINKS" />}</span>
-          </div>
+            {c.phone && <span className="line"><span className="k">{wa && wa === tel?.replace(/\D/g, "") ? "Phone and WhatsApp" : "Phone"}</span><a href={`tel:${tel}`}>{c.phone}</a></span>}
+            {wa && wa !== tel?.replace(/\D/g, "") && <span className="line"><span className="k">WhatsApp</span><a href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer">+{wa}</a></span>}
+            {c.email && <span className="line"><span className="k">Email</span><a href={`mailto:${c.email}`}>{c.email}</a></span>}
+            {place && <span className="line"><span className="k">Address</span>{place}{c.mapConfirmed && c.address && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`} target="_blank" rel="noopener noreferrer">View on map</a>}</span>}
+            {c.hours.length > 0 && <span className="line"><span className="k">Opening hours</span>{c.hours.map((h) => <span key={h} className="block">{h}</span>)}</span>}
+            {c.social.length > 0 && <span className="line"><span className="k">Follow us</span><span className="fsocial">{c.social.map((x) => <a key={x.url} href={x.url} target="_blank" rel="noopener noreferrer">{x.label}</a>)}</span></span>}
+          </address>
         </div>
-        <p className="signoff"><span className="tagline serif">{s.business.tagline}</span><span className="small">&copy; {s.business.legalName}</span></p>
+        <div className="signoff">
+          <span className="tagline serif">{s.business.tagline}</span>
+          <span className="small">&copy; {year} {s.business.legalName}. All rights reserved.</span>
+        </div>
       </div>
     </footer>
   );

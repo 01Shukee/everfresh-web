@@ -1,0 +1,20 @@
+/* Site footer layout. Loaded after globals.css; uses the same brand tokens. */
+.foot { padding: 64px 0 28px; }
+.foot .fg { grid-template-columns: 1.5fr 1fr 1fr 1.3fr; gap: 40px 32px; }
+.foot .fcol { display: flex; flex-direction: column; align-items: flex-start; font-style: normal; }
+.foot .fcol .lab { margin-bottom: 10px; color: var(--ef-amber); }
+.foot .fcol a, .foot .fcol .line { display: block; padding: 5px 0; line-height: 1.45; overflow-wrap: anywhere; }
+.foot .fcol a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.foot .fcontact .k { display: block; font-size: 12.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; opacity: .78; margin-bottom: 1px; }
+.foot .fcontact .line a { padding: 0; display: inline-block; }
+.foot .fcontact .line a + a, .foot .fcontact .line > .block + .block { margin-top: 2px; }
+.foot .fcontact .line > a:not(:first-child) { display: block; }
+.foot .fsocial { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.foot .fsocial a { display: inline-block; padding: 0; }
+.foot .fbrand { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+.foot .fabout { margin: 0; max-width: 38ch; line-height: 1.55; opacity: .94; }
+.foot .fcta { display: flex; flex-wrap: wrap; gap: 10px; }
+.foot .fcta a.pill { display: inline-flex; padding: 0 18px; }
+.foot .signoff { margin-top: 44px; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, .28); justify-content: space-between; }
+@media (max-width: 960px) { .foot .fg { grid-template-columns: 1fr 1fr; } .foot .fbrand { grid-column: 1 / -1; } }
+@media (max-width: 560px) { .foot { padding-top: 48px; } .foot .fg { grid-template-columns: 1fr; gap: 32px; } .foot .signoff { flex-direction: column; align-items: flex-start; } }

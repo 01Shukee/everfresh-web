@@ -9,6 +9,12 @@ const empty: D = { fullName: "", phone: "", email: "", dob: "", address: "", edu
 const hash = (s: string) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return String(h >>> 0); };
 const keyFor = (fp: string) => { const k = `ef-appidem-${hash(fp)}`; try { let v = sessionStorage.getItem(k); if (!v) { v = crypto.randomUUID().replace(/-/g, ""); sessionStorage.setItem(k, v); } return v; } catch { return crypto.randomUUID().replace(/-/g, ""); } };
 
+/** Declared at module level on purpose: a component created inside the wizard's render gets a new identity on every keystroke, so React remounts the input and it loses focus. */
+function F({ id, label, req, err, children, hint }: { id: string; label: string; req?: boolean; err?: string; children: React.ReactNode; hint?: string }) {
+  return (
+    <div className={`field ${err ? "bad" : ""}`}><label htmlFor={id}>{label} <span className={req ? "req" : "opt-t"}>{req ? "(required)" : "(optional)"}</span></label>{children}{hint && <p className="hint">{hint}</p>}{err && <p className="err" id={`${id}-e`}>{err}</p>}</div>);
+}
+
 export function ApplyWizard({ options, initialVariant, resume, initial }: { options: ApplyOption[]; initialVariant: string | null; resume?: { ref: string; token: string }; initial?: { variantId: string; course: string | null; details: Partial<D> } }) {
   const [step, setStep] = useState<1 | 2>(resume ? 2 : initialVariant ? 2 : 1);
   const [variant, setVariant] = useState<string>(initial?.variantId ?? initialVariant ?? ""); const [course, setCourse] = useState(initial?.course ?? "");
@@ -19,7 +25,7 @@ export function ApplyWizard({ options, initialVariant, resume, initial }: { opti
 
   useEffect(() => { try { const s = sessionStorage.getItem("ef-apply-selection"); if (s && !variant) { const j = JSON.parse(s); setVariant(j.variant); setCourse(j.course ?? ""); setCat(VARIANTS.find((v) => v.id === j.variant)?.programme ?? ""); } const l = localStorage.getItem("ef-app-draft"); if (l && !resume) setDraft(JSON.parse(l)); } catch { /* storage unavailable */ } }, []); // eslint-disable-line
   useEffect(() => { if (variant) try { sessionStorage.setItem("ef-apply-selection", JSON.stringify({ variant, course })); } catch { /* ignore */ } }, [variant, course]);
-  const set = (k: keyof D) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setD({ ...d, [k]: e.target.value });
+  const set = (k: keyof D) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { const v = e.target.value; setD((prev) => ({ ...prev, [k]: v })); };
   const fp = useMemo(() => JSON.stringify({ variant, course, d }), [variant, course, d]);
 
   const submit = async (e: React.FormEvent) => {
@@ -32,8 +38,6 @@ export function ApplyWizard({ options, initialVariant, resume, initial }: { opti
       setErrs(j.fieldErrors ?? {}); setMsg(j.error ?? "Something went wrong."); setBusy(false); setTimeout(() => document.getElementById("form-alert")?.focus(), 50);
     } catch { setMsg("We couldn't reach the server. Nothing was charged. Please try again."); setBusy(false); }
   };
-  const F = ({ id, label, req, err, children, hint }: { id: string; label: string; req?: boolean; err?: string; children: React.ReactNode; hint?: string }) => (
-    <div className={`field ${err ? "bad" : ""}`}><label htmlFor={id}>{label} <span className={req ? "req" : "opt-t"}>{req ? "(required)" : "(optional)"}</span></label>{children}{hint && <p className="hint">{hint}</p>}{err && <p className="err" id={`${id}-e`}>{err}</p>}</div>);
 
   return (
     <div className="apply">

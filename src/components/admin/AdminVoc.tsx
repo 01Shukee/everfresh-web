@@ -1,5 +1,5 @@
 "use client";
-import { ImagePreview, UploadButton } from "./shared";
+import { CaptionsUploadButton, UploadButton, VideoUploadButton } from "./shared";
 import { useCallback, useEffect, useState } from "react";
 import { VARIANTS } from "@/config/vocational";
 import { decimalToKobo, formatNaira } from "@/lib/money";
@@ -27,17 +27,46 @@ function Applications() {
   const act = async (fn: () => Promise<{ ok: boolean; json: any }>, ok: string) => { const r = await fn(); setMsg(r.ok ? ok : r.json.error ?? "Failed."); if (open) loadDet(open); load(); return r; };
   const [lines, setLines] = useState("tuition | Tuition | \n"); const [due, setDue] = useState(""); const [terms, setTerms] = useState(""); const [pay, setPay] = useState({ amount: "", ref: "", note: "" });
   const makeInvoice = async () => {
-    type InvoiceLineInput = {
-  kind: "tuition" | "accommodation" | "other" | "discount";
+    type InvoiceLineKind =
+  | "tuition"
+  | "accommodation"
+  | "other"
+  | "discount";
+
+const validKinds: InvoiceLineKind[] = [
+  "tuition",
+  "accommodation",
+  "other",
+  "discount",
+];
+
+const out: {
+  kind: InvoiceLineKind;
   label: string;
   amountKobo: number;
-};
+}[] = [];
 
-const out: InvoiceLineInput[] = []; for (const l of parseLines(lines)) { const [kind, lab, amt] = l.split("|").map((x) => x.trim()); const k = decimalToKobo(amt); if (k === null) { setMsg(`Line "${l}": use "kind | label | amount in naira".`); return; } out.push({
-  kind: kind as InvoiceLineInput["kind"],
-  label: lab,
-  amountKobo: k,
-}); }
+for (const l of parseLines(lines)) {
+  const [rawKind, lab, amt] = l.split("|").map((x) => x.trim());
+
+  if (!validKinds.includes(rawKind as InvoiceLineKind)) {
+    setMsg(`Line "${l}": kind must be tuition, accommodation, other or discount.`);
+    return;
+  }
+
+  const k = decimalToKobo(amt);
+
+  if (k === null) {
+    setMsg(`Line "${l}": use "kind | label | amount in naira".`);
+    return;
+  }
+
+  out.push({
+    kind: rawKind as InvoiceLineKind,
+    label: lab,
+    amountKobo: k,
+  });
+}
     await act(() => api(`/api/admin/voc/applications/${open}/invoices`, "POST", { lines: out, dueDate: due || undefined, paymentTerms: terms || undefined }), "Draft invoice created.");
   };
   return (
@@ -97,20 +126,19 @@ function Programmes() {
 function Media() {
   const [kind, setKind] = useState<"portfolio" | "video" | "testimonial">("portfolio"); const [items, setItems] = useState<any[]>([]); const [f, setF] = useState<any>({}); const [msg, setMsg] = useState("");
   const load = useCallback(async () => { const r = await api(`/api/admin/voc/media/${kind}`); if (r.ok) setItems(r.json.items); }, [kind]); useEffect(() => { load(); setF({}); setMsg(""); }, [load]);
-  const save = async (e: React.FormEvent) => { e.preventDefault(); const body = { ...f, sort: f.sort === undefined || f.sort === "" || f.sort === null ? undefined : Number(f.sort), published: !!f.published, permission: !!f.permission }; const r = f.id ? await api(`/api/admin/voc/media/${kind}/${f.id}`, "PUT", body) : await api(`/api/admin/voc/media/${kind}`, "POST", body); setMsg(r.ok ? (f.id ? "Changes saved. The website shows them now." : "Added. The website shows it now if Publish is ticked.") : r.json.error); if (r.ok) setF({}); load(); };
-  const homeId = kind === "portfolio" ? items.find((i) => i.published && i.kind === "project")?.id : null;
+  const save = async (e: React.FormEvent) => { e.preventDefault(); const r = await api(`/api/admin/voc/media/${kind}`, "POST", { ...f, published: !!f.published, permission: !!f.permission }); setMsg(r.ok ? "Saved." : r.json.error); if (r.ok) setF({}); load(); };
   const toggle = async (i: any) => { const r = await api(`/api/admin/voc/media/${kind}/${i.id}`, "PUT", { ...i, published: !i.published }); setMsg(r.ok ? "Updated." : r.json.error); load(); };
-  const I = (k: string, l: string) => <div className="field"><label htmlFor={`m-${k}`}>{l}</label><input id={`m-${k}`} value={f[k] ?? ""} onChange={(e) => setF({ ...f, [k]: e.target.value })} />{(k === "imageUrl" || k === "poster") && <ImagePreview url={f[k]} />}</div>;
+  const I = (k: string, l: string) => <div className="field"><label htmlFor={`m-${k}`}>{l}</label><input id={`m-${k}`} value={f[k] ?? ""} onChange={(e) => setF({ ...f, [k]: e.target.value })} /></div>;
   return (
     <section aria-labelledby="mv"><h2 id="mv" className="serif">Photos, videos and testimonials</h2>
       <div className="seg" role="radiogroup" aria-label="Type">{(["portfolio", "video", "testimonial"] as const).map((k) => <label key={k} className={kind === k ? "on" : ""}><input type="radio" name="mk" checked={kind === k} onChange={() => setKind(k)} />{k === "portfolio" ? "Portfolio photos" : k === "video" ? "Training videos" : "Testimonials"}</label>)}</div>
       {msg && <p className="alert" role="status">{msg}</p>}
-      <form className="adminform" onSubmit={save}>{f.id && <p className="alert" role="status">Editing “{f.title ?? f.name}”. Change anything and press Save changes.</p>}{kind === "portfolio" && !f.id && <p className="hint">The homepage Studies section shows the first published “Completed project” photo. A newly added photo goes to the front.</p>}<div className="grid-f">
-        {kind === "portfolio" && <><div className="field"><label htmlFor="m-kind">Type</label><select id="m-kind" value={f.kind ?? ""} onChange={(e) => setF({ ...f, kind: e.target.value })}><option value="">Choose…</option><option value="project">Completed project</option><option value="student">Student work</option><option value="instructor">Instructor demonstration</option><option value="facility">Training facility</option></select></div>{I("title", "Title")}{I("imageUrl", "Photo path or URL")}<div className="field"><UploadButton onUploaded={(u) => setF({ ...f, imageUrl: u })} /></div>{I("imageAlt", "Alt text")}{I("caption", "Caption")}{I("sort", "Display order (lower numbers show first)")}</>}
-        {kind === "video" && <>{I("title", "Title")}{I("src", "Video path or URL")}{I("captions", "Captions file (.vtt) path or URL")}{I("poster", "Poster image (optional)")}{I("description", "Description")}</>}
+      <form className="adminform" onSubmit={save}><div className="grid-f">
+        {kind === "portfolio" && <><div className="field"><label htmlFor="m-kind">Type</label><select id="m-kind" value={f.kind ?? ""} onChange={(e) => setF({ ...f, kind: e.target.value })}><option value="">Choose…</option><option value="project">Completed project</option><option value="student">Student work</option><option value="instructor">Instructor demonstration</option><option value="facility">Training facility</option></select></div>{I("title", "Title")}{I("imageUrl", "Photo path or URL")}<div className="field"><UploadButton onUploaded={(u) => setF({ ...f, imageUrl: u })} /></div>{I("imageAlt", "Alt text")}{I("caption", "Caption")}</>}
+        {kind === "video" && <>{I("title", "Title")}{I("src", "Video path or URL")}<div className="field"><VideoUploadButton onUploaded={(u) => setF((p: any) => ({ ...p, src: u }))} /><p className="hint">Upload an MP4 (H.264) or WebM file, or paste a direct link to the video file ending in .mp4 or .webm. A Streamable, YouTube or Instagram page link will not play.</p></div>{I("captions", "Captions file (.vtt) path or URL")}<div className="field"><CaptionsUploadButton onUploaded={(u) => setF((p: any) => ({ ...p, captions: u }))} /></div>{I("poster", "Poster image (optional)")}<div className="field"><UploadButton label="Upload poster image" onUploaded={(u) => setF((p: any) => ({ ...p, poster: u }))} /></div>{I("description", "Description")}</>}
         {kind === "testimonial" && <>{I("name", "Name")}{I("relation", "Relationship (e.g. past student)")}{I("quote", "Quote")}<label className="check"><input type="checkbox" checked={!!f.permission} onChange={(e) => setF({ ...f, permission: e.target.checked })} /> Written permission received</label></>}
-      </div><label className="check"><input type="checkbox" checked={!!f.published} onChange={(e) => setF({ ...f, published: e.target.checked })} /> Publish on the website</label><div className="acts"><button className="pill sm">{f.id ? "Save changes" : "Add"}</button>{f.id && <button type="button" className="linkbtn" onClick={() => setF({})}>Cancel editing</button>}</div></form>
-      {items.length === 0 ? <div className="empty"><p className="serif empty-title">Nothing added yet.</p></div> : <table className="atable"><thead><tr><th>Item</th><th>Published</th><th><span className="sr">Actions</span></th></tr></thead><tbody>{items.map((i) => <tr key={i.id}><td>{i.imageUrl && <img className="thumb" src={i.imageUrl} alt="" width="48" height="48" loading="lazy" />}<b>{i.title ?? i.name}</b>{i.kind ? ` · ${i.kind}` : ""}{kind === "portfolio" && <span className="hint"> · order {i.sort ?? 0}</span>}{i.id === homeId && <> <span className="tag">Shown on homepage</span></>}</td><td><label className="check"><input type="checkbox" checked={i.published} onChange={() => toggle(i)} aria-label={`${i.title ?? i.name} published`} /></label></td><td><div className="acts"><button className="linkbtn" onClick={() => { setF({ ...i, sort: i.sort ?? 0 }); setMsg(""); document.getElementById("mv")?.scrollIntoView({ block: "start" }); }}>Edit</button><button className="linkbtn" onClick={async () => { if (confirm("Delete?")) { await api(`/api/admin/voc/media/${kind}/${i.id}`, "DELETE"); load(); } }}>Delete</button></div></td></tr>)}</tbody></table>}
+      </div><label className="check"><input type="checkbox" checked={!!f.published} onChange={(e) => setF({ ...f, published: e.target.checked })} /> Publish on the website</label><div className="acts"><button className="pill sm">Add</button></div></form>
+      {items.length === 0 ? <div className="empty"><p className="serif empty-title">Nothing added yet.</p></div> : <table className="atable"><thead><tr><th>Item</th><th>Published</th><th><span className="sr">Actions</span></th></tr></thead><tbody>{items.map((i) => <tr key={i.id}><td><b>{i.title ?? i.name}</b>{i.kind ? ` · ${i.kind}` : ""}</td><td><label className="check"><input type="checkbox" checked={i.published} onChange={() => toggle(i)} aria-label={`${i.title ?? i.name} published`} /></label></td><td><button className="linkbtn" onClick={async () => { if (confirm("Delete?")) { await api(`/api/admin/voc/media/${kind}/${i.id}`, "DELETE"); load(); } }}>Delete</button></td></tr>)}</tbody></table>}
     </section>
   );
 }

@@ -4,9 +4,10 @@ import { SiteHeader } from "@/components/layout/SiteHeader";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { CartProvider } from "@/components/order/CartProvider";
 import { CartDrawer } from "@/components/order/CartDrawer";
-import { getRepo } from "@/server/runtime";
+import { getRepo, whatsappDigitsFor } from "@/server/runtime";
 import { getSettings } from "@/server/site/settings";
 import "./globals.css";
+import "./footer.css";
 
 // latin-ext and vietnamese subsets cover the Naira sign and Igbo dot-below letters; verify with the Type check page in the design preview and in generated PDFs.
 const display = Fraunces({ subsets: ["latin", "latin-ext", "vietnamese"], variable: "--font-display", display: "swap", axes: ["opsz"] });
@@ -30,7 +31,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const s = await getSettings(await getRepo());
+  const repo = await getRepo(); const [s, whatsapp] = await Promise.all([getSettings(repo), whatsappDigitsFor(repo)]);
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body>
@@ -39,7 +40,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <CartProvider>
           <SiteHeader brand={{ name: s.business.name, emblemUrl: s.brand.emblemUrl }} />
           <main id="main">{children}</main>
-          <SiteFooter s={s} />
+          <SiteFooter s={s} whatsapp={whatsapp} />
           <CartDrawer />
         </CartProvider>
       </body>
