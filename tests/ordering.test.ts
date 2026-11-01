@@ -63,9 +63,9 @@ test("pricing: catalog price changes are reflected, never client values", async 
 test("validation: phone, email, name, delivery address, scheduling", () => {
   assert.equal(normalisePhone("0803 123 4567"), "+2348031234567"); assert.equal(normalisePhone("+234 803-123-4567"), "+2348031234567"); assert.equal(normalisePhone("2348031234567"), "+2348031234567");
   assert.equal(normalisePhone("0603 123 4567"), null); assert.equal(normalisePhone("12345"), null);
-  const v = (o: object) => validateCheckout(body(o), NOW, cfg);
+  const v = (o: Record<string, unknown>) => validateCheckout(body(o), NOW, cfg);
   const good = v({}); assert.ok(good.ok); assert.equal((good as any).value.customer.email, "test@example.com"); assert.equal((good as any).value.customer.phone, "+2348031234567");
-  const err = (o: object) => (v(o) as any).fieldErrors ?? {};
+  const err = (o: Record<string, unknown>) => (v(o) as any).fieldErrors ?? {};
   assert.ok(err({ customer: { name: "A", phone: "x", email: "bad" } }).name && err({ customer: { name: "A", phone: "x", email: "bad" } }).phone && err({ customer: { name: "A", phone: "x", email: "bad" } }).email);
   assert.ok(err({ fulfilment: { type: "delivery", zoneId: "z1", address: "short" } }).address);
   assert.ok(err({ fulfilment: { type: "other" } }).fulfilmentType); assert.ok(err({ idempotencyKey: "short" }).idempotencyKey);

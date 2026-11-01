@@ -1,1 +1,14 @@
-{"compilerOptions":{"jsx":"react-jsx","target":"ES2022","module":"esnext","moduleResolution":"bundler","baseUrl":".","paths":{"@/*":["../src/*"],"next/link":["stubs/link.tsx"],"next/navigation":["stubs/nav.ts"]}}}
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "target": "ES2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@/*": ["../src/*"],
+      "next/link": ["stubs/link.tsx"],
+      "next/navigation": ["stubs/nav.ts"]
+    }
+  }
+}
