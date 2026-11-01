@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export const api = async (url: string, method = "GET", body?: unknown) => {
   const r = await fetch(url, { method, headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
@@ -30,4 +30,17 @@ export function UploadButton({ onUploaded, label = "Upload photo" }: { onUploade
     setBusy(false); input.value = "";
   };
   return <span className="upl"><label className="pill ghost sm">{busy ? "Uploading…" : label}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={pick} disabled={busy} className="sr" /></label>{err && <span className="err" role="alert">{err}</span>}</span>;
+}
+
+/** Shows the photo an address points to as soon as it is typed or pasted, so a link that is not a direct image is noticed before saving. */
+export function ImagePreview({ url }: { url?: string | null }) {
+  const raw = (url ?? "").trim(); const [bad, setBad] = useState(false); useEffect(() => setBad(false), [raw]);
+  if (!raw) return null; const http = /^http:\/\//i.test(raw); const src = http ? `https://${raw.slice(7)}` : raw;
+  return (
+    <div className="imgprev">
+      {!bad && <img src={src} alt="Preview of the photo" onError={() => setBad(true)} />}
+      {bad && <p className="hint warn" role="alert">This address did not load as a picture. Paste the direct link to the image file (it usually ends in .jpg, .png or .webp, not a web page, Instagram or Google Drive link), or use Upload photo.</p>}
+      {http && <p className="hint">This http:// link will be saved as https://.</p>}
+    </div>
+  );
 }

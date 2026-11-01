@@ -313,3 +313,11 @@ dialog { border: 0; padding: 0; color: var(--ef-ink); } dialog::backdrop { backg
 
 /* ===== Dish photo fallback (FoodImage): neutral plate tile when a photo is missing or fails to load ===== */
 .foodfb { color: var(--ef-green-deep); padding: 0; } .foodfb svg { width: 42%; height: 42%; opacity: .55; }
+
+/* ===== Caption tags wrap and stay inside their photo (a long project title must never widen the page) ===== */
+.plate-wide figcaption { right: 16px; } .plate-wide figcaption .tag { display: -webkit-box; width: fit-content; max-width: 100%; white-space: normal; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.3; border-radius: 14px; font-size: 11px; letter-spacing: .04em; }
+@media (max-width: 720px) { .plate-wide figcaption { left: 12px; right: 12px; bottom: 12px; } .plate-wide figcaption .tag { font-size: 10.5px; padding: 3px 9px; } }
+figcaption .tag, .vt figcaption .tag { max-width: 100%; }
+/* ===== Admin: photo preview, thumbnails ===== */
+.imgprev { margin-top: 8px; } .imgprev img { display: block; max-width: 180px; max-height: 120px; border-radius: 10px; object-fit: cover; border: 1px solid var(--ef-line); } .hint.warn { color: var(--ef-red); font-weight: 700; }
+.thumb { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; vertical-align: middle; margin-right: 10px; border: 1px solid var(--ef-line); } .atable td .hint { display: inline; }

@@ -1,3 +1,5 @@
+import { cleanImageUrl, IMAGE_URL_HELP } from "../image-url";
+import { firstSort } from "../voc/admin";
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { newRef } from "../../lib/ids";
 import { UniqueViolation, type Repo } from "../repo";
@@ -90,9 +92,9 @@ export async function saveCateringContent(repo: Repo, raw: any): Promise<R> {
   const c: CateringContent = { categories: cats, services, styles }; await repo.docPut("cat-content", "main", c); return { status: 200, body: c };
 }
 export async function saveGallery(repo: Repo, raw: any, id?: string): Promise<R> {
-  const bad = (m: string): R => ({ status: 422, body: { error: m } }); const url = (v: unknown) => { const x = slugOk(v, 400); return /^(\/(media|uploads)\/[\w\-./]+|https:\/\/[^\s]+)$/.test(x) ? x : null; };
-  const img = url(raw?.imageUrl); if (!img || !["food", "event"].includes(raw?.kind) || !slugOk(raw?.title, 100) || !slugOk(raw?.imageAlt, 140)) return bad("A photo needs a type, title, image path or https URL, and alt text.");
-  if (id && !(await repo.docGet("cgallery", id))) return { status: 404, body: { error: "Not found." } };
-  const item: GalleryItem = { id: id ?? randomUUID(), kind: raw.kind, title: slugOk(raw.title, 100), caption: slugOk(raw.caption, 300), imageUrl: img, imageAlt: slugOk(raw.imageAlt, 140), published: raw.published === true, sort: Number.isInteger(raw.sort) ? raw.sort : 0 };
+  const bad = (m: string): R => ({ status: 422, body: { error: m } }); const url = (v: unknown) => cleanImageUrl(slugOk(v, 400));
+  const img = url(raw?.imageUrl); if (!img || !["food", "event"].includes(raw?.kind) || !slugOk(raw?.title, 100) || !slugOk(raw?.imageAlt, 140)) return bad(`A photo needs a type, a title, alt text and a usable image address. ${IMAGE_URL_HELP}`);
+  const prev = id ? await repo.docGet<GalleryItem>("cgallery", id) : null; if (id && !prev) return { status: 404, body: { error: "Not found." } };
+  const item: GalleryItem = { id: id ?? randomUUID(), kind: raw.kind, title: slugOk(raw.title, 100), caption: slugOk(raw.caption, 300), imageUrl: img, imageAlt: slugOk(raw.imageAlt, 140), published: raw.published === true, sort: Number.isInteger(raw.sort) ? raw.sort : prev ? prev.sort : await firstSort(repo, "cgallery") };
   await repo.docPut("cgallery", item.id, item); return { status: id ? 200 : 201, body: item };
 }

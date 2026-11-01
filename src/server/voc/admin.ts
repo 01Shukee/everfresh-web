@@ -1,3 +1,4 @@
+import { cleanImageUrl, IMAGE_URL_HELP } from "../image-url";
 import { randomUUID } from "node:crypto";
 import { variantById, vocConfig } from "../../config/vocational";
 import { newRef } from "../../lib/ids";
@@ -92,14 +93,16 @@ export async function saveContent(repo: Repo, variantId: string, raw: unknown): 
 }
 
 type MediaKind = "portfolio" | "video" | "testimonial";
+/** A new photo or video goes to the front (one place before the current first), so what was just added is what visitors see, until you set a display order yourself. */
+export const firstSort = async (repo: Repo, kind: string) => Math.min(0, ...(await repo.docList<{ sort?: number }>(kind)).map((x) => x.sort ?? 0)) - 1;
 export async function listMedia(repo: Repo, kind: MediaKind) { return (await repo.docList<{ sort?: number }>(kind)).sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0)); }
 export async function saveMedia(repo: Repo, kind: MediaKind, raw: unknown, id?: string): Promise<ApiResult> {
-  if (!isRec(raw)) return bad("Invalid request."); const rid = id ?? randomUUID(); const sort = Number.isInteger(raw.sort) ? (raw.sort as number) : 0; const published = raw.published === true;
-  const url = (v: unknown) => { const x = s(v, 400); return /^(\/(media|uploads)\/[\w\-./]+|https:\/\/[^\s]+)$/.test(x) ? x : null; };
+  if (!isRec(raw)) return bad("Invalid request."); const rid = id ?? randomUUID(); const prev = id ? await repo.docGet<{ sort?: number }>(kind, id) : null; const sort = Number.isInteger(raw.sort) ? (raw.sort as number) : prev ? (prev.sort ?? 0) : await firstSort(repo, kind); const published = raw.published === true;
+  const url = (v: unknown) => cleanImageUrl(s(v, 400));
   let item: PortfolioItem | VideoItem | Testimonial;
   if (kind === "portfolio") {
     const img = url(raw.imageUrl); const kinds = ["project", "student", "instructor", "facility"];
-    if (!img || !kinds.includes(raw.kind as string) || !s(raw.title, 100) || !s(raw.imageAlt, 140)) return bad("A photo needs a type, title, image path or https URL, and alt text.");
+    if (!img || !kinds.includes(raw.kind as string) || !s(raw.title, 100) || !s(raw.imageAlt, 140)) return bad(`A photo needs a type, a title, alt text and a usable image address. ${IMAGE_URL_HELP}`);
     const vid = raw.variantId ? variantById(raw.variantId) : null; if (raw.variantId && !vid) return bad("Unknown programme option.");
     item = { id: rid, kind: raw.kind as PortfolioItem["kind"], title: s(raw.title, 100), caption: s(raw.caption, 300), imageUrl: img, imageAlt: s(raw.imageAlt, 140), variantId: (vid?.id ?? null) as PortfolioItem["variantId"], published, sort };
   } else if (kind === "video") {

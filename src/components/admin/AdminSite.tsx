@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Role } from "@/lib/permissions";
 import { can } from "@/lib/permissions";
 import { parseLines } from "@/lib/voc-text";
-import { UploadButton, api, when } from "./shared";
+import { ImagePreview, UploadButton, api, when } from "./shared";
 
 type Sub = "business" | "about" | "homepage" | "faqs" | "brand";
 const L = { business: "Business and contact", about: "About page", homepage: "Homepage", faqs: "FAQs", brand: "Logo and brand" } as const;
@@ -16,7 +16,7 @@ export function AdminSite({ role }: { role: Role }) {
 }
 
 const T = (f: any, setF: (x: any) => void, k: string, label: string, rows = 3, hint?: string) => <div className="field"><label htmlFor={`s-${k}`}>{label}</label><textarea id={`s-${k}`} rows={rows} value={f[k] ?? ""} onChange={(e) => setF({ ...f, [k]: e.target.value })} />{hint && <p className="hint">{hint}</p>}</div>;
-const I = (f: any, setF: (x: any) => void, k: string, label: string, hint?: string, up = false) => <div className="field"><label htmlFor={`s-${k}`}>{label}</label><input id={`s-${k}`} value={f[k] ?? ""} onChange={(e) => setF({ ...f, [k]: e.target.value })} />{hint && <p className="hint">{hint}</p>}{up && <UploadButton onUploaded={(u) => setF({ ...f, [k]: u })} />}</div>;
+const I = (f: any, setF: (x: any) => void, k: string, label: string, hint?: string, up = false) => <div className="field"><label htmlFor={`s-${k}`}>{label}</label><input id={`s-${k}`} value={f[k] ?? ""} onChange={(e) => setF({ ...f, [k]: e.target.value })} />{hint && <p className="hint">{hint}</p>}{up && <UploadButton onUploaded={(u) => setF({ ...f, [k]: u })} />}{up && <ImagePreview url={f[k]} />}</div>;
 
 function Business() {
   const [b, setB] = useState<any>(null); const [c, setC] = useState<any>(null); const [msg, setMsg] = useState("");
@@ -52,7 +52,7 @@ function Content({ sub }: { sub: Exclude<Sub, "business"> }) {
     if (sub === "faqs") body = { faqs: parseLines(f.faqs).map((l: string, i: number) => { const [q, a, pub] = l.split("|").map((x) => x.trim()); return { q, a, published: (pub ?? "yes").toLowerCase() !== "no", sort: i }; }) };
     const r = await api(`/api/admin/site/${sub}`, "PUT", body); setMsg(r.ok ? "Saved. The website now shows this content." : r.json.error);
   };
-  const hero = (k: "food" | "studies" | "catering", name: string) => { const h = f.hero?.[k] ?? { url: "", alt: "" }; const set = (x: any) => setF({ ...f, hero: { ...f.hero, [k]: x } }); return (<div className="field heroimg" key={k}><b>{name}</b><input aria-label={`${name} hero photo path`} placeholder="/uploads/… or https://…" value={h.url} onChange={(e) => set({ ...h, url: e.target.value })} /><input aria-label={`${name} hero photo alt text`} placeholder="Alt text" value={h.alt} onChange={(e) => set({ ...h, alt: e.target.value })} /><UploadButton onUploaded={(u) => set({ ...h, url: u })} /></div>); };
+  const hero = (k: "food" | "studies" | "catering", name: string) => { const h = f.hero?.[k] ?? { url: "", alt: "" }; const set = (x: any) => setF({ ...f, hero: { ...f.hero, [k]: x } }); return (<div className="field heroimg" key={k}><b>{name}</b><input aria-label={`${name} hero photo path`} placeholder="/uploads/… or https://…" value={h.url} onChange={(e) => set({ ...h, url: e.target.value })} /><input aria-label={`${name} hero photo alt text`} placeholder="Alt text" value={h.alt} onChange={(e) => set({ ...h, alt: e.target.value })} /><UploadButton onUploaded={(u) => set({ ...h, url: u })} /><ImagePreview url={h.url} /></div>); };
   return (
     <form className="adminform" onSubmit={save}><h2 className="serif">{L[sub]}</h2>{msg && <p className="alert" role="status">{msg}</p>}
       {sub === "about" && <>{T(f, setF, "intro", "Business introduction", 3)}{T(f, setF, "mission", "Mission", 2)}{T(f, setF, "values", "Values (one per line)", 3)}{T(f, setF, "history", "Confirmed business history", 4)}{T(f, setF, "foodInfo", "Food ordering information", 2)}{T(f, setF, "vocationalInfo", "Vocational training information", 2)}{T(f, setF, "cateringInfo", "Catering information", 2)}{T(f, setF, "credentials", "Credentials (only those you can prove; one per line)", 2)}

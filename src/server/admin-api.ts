@@ -1,3 +1,4 @@
+import { cleanImageUrl, IMAGE_URL_HELP } from "./image-url";
 import { randomUUID } from "node:crypto";
 import type { Repo } from "./repo";
 import { canTransition } from "./status";
@@ -44,12 +45,12 @@ export async function saveItem(repo: Repo, raw: unknown, id?: string): Promise<A
   if (!vs.length && (base === null || base <= 0)) return bad("Enter a price above zero.");
   if (vs.length) base = base ?? 0;
   const imageUrl = typeof raw.imageUrl === "string" && raw.imageUrl.trim() ? raw.imageUrl.trim() : null;
-  if (imageUrl && !/^(\/(media|uploads)\/[\w\-./]+|https:\/\/[^\s]+)$/.test(imageUrl)) return bad("Image must be a /media/... path or an https:// URL.");
+  const cleanImage = imageUrl ? cleanImageUrl(imageUrl) : null; if (imageUrl && !cleanImage) return bad(`That image address cannot be used. ${IMAGE_URL_HELP}`);
   const now = new Date().toISOString();
   const item: MenuItem = {
     id: existing?.id ?? randomUUID(), categoryId: raw.categoryId, name, description, basePriceKobo: base ?? 0, variants: vs, addOnGroups: gs,
     tags: Array.isArray(raw.tags) ? raw.tags.map((t) => String(t).trim().toLowerCase()).filter(Boolean).slice(0, 8) : [],
-    imageUrl, imageAlt: typeof raw.imageAlt === "string" ? raw.imageAlt.trim().slice(0, 140) : "",
+    imageUrl: cleanImage, imageAlt: typeof raw.imageAlt === "string" ? raw.imageAlt.trim().slice(0, 140) : "",
     active: raw.active === undefined ? existing?.active ?? true : raw.active === true, available: raw.available === undefined ? existing?.available ?? true : raw.available === true,
     sort: Number.isInteger(raw.sort) ? (raw.sort as number) : existing?.sort ?? 0, createdAt: existing?.createdAt ?? now, updatedAt: now,
   };

@@ -8,7 +8,7 @@ import { AdminCatering } from "./AdminCatering";
 import { AdminSite, AdminInbox } from "./AdminSite";
 import { AdminTeam, AdminAccount } from "./AdminTeam";
 import { AdminFoodSettings } from "./AdminFoodSettings";
-import { UploadButton } from "./shared";
+import { ImagePreview, UploadButton } from "./shared";
 import { can, type Role } from "@/lib/permissions";
 
 type Tab = "orders" | "menu" | "categories" | "delivery" | "vocational" | "catering" | "website" | "messages" | "team" | "account";
@@ -100,7 +100,7 @@ function MenuAdmin() {
         <div className="grid-f2"><div className="field"><label htmlFor="s">Portion sizes (one per line: Name | price)</label><textarea id="s" rows={4} placeholder="Small | 2000" value={f.sizes} onChange={(e) => setF({ ...f, sizes: e.target.value })} /></div>
           <div className="field"><label htmlFor="a"># Add-on group | min | max, then - Option | price</label><textarea id="a" rows={4} placeholder={"# Extras | 0 | 2\n- Option | 300"} value={f.addons} onChange={(e) => setF({ ...f, addons: e.target.value })} /></div></div>
         <div className="grid-f"><div className="field"><label htmlFor="t">Tags (comma separated)</label><input id="t" value={f.tags} onChange={(e) => setF({ ...f, tags: e.target.value })} /></div>
-          <div className="field"><label htmlFor="u">Photo path or URL</label><input id="u" value={f.imageUrl} onChange={(e) => setF({ ...f, imageUrl: e.target.value })} /><UploadButton onUploaded={(u) => setF({ ...f, imageUrl: u })} /></div>
+          <div className="field"><label htmlFor="u">Photo path or URL</label><input id="u" value={f.imageUrl} onChange={(e) => setF({ ...f, imageUrl: e.target.value })} /><ImagePreview url={f.imageUrl} /><UploadButton onUploaded={(u) => setF({ ...f, imageUrl: u })} /></div>
           <div className="field"><label htmlFor="al">Photo alt text</label><input id="al" value={f.imageAlt} onChange={(e) => setF({ ...f, imageAlt: e.target.value })} /></div></div>
         <div className="checks"><label className="check"><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} /> Enabled (visible to customers)</label><label className="check"><input type="checkbox" checked={f.available} onChange={(e) => setF({ ...f, available: e.target.checked })} /> Available (untick for sold out)</label></div>
         <div className="acts"><button className="pill sm">Save item</button><button type="button" className="pill ghost sm" onClick={() => { setForm(false); setEditing(null); }}>Cancel</button></div></form>}
