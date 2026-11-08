@@ -202,17 +202,28 @@ const OLD_SAMPLE_PROGRAMME_NOTE = "Intake dates are confirmed by admissions afte
 const INSTITUTE = { name: "Vocational Institute", address: "No 1 Regent Street, Nnewi", phones: ["08101032983", "08083143342", "08035006435", "08038472422", "09033697799"], note: "For confirmation: Engr. Ibezim Ojukwu 08133300777" };
 async function seedVocational(repo: Repo, log: Log) {
   const done: string[] = [];
-  if (!(await repo.docGet("meta", "seed-institute-v1"))) {
+  const force = process.env.FORCE_VOC === "1";
+if (force || !(await repo.docGet("meta", "seed-institute-v1"))) {
     for (const [id, c] of Object.entries(INSTITUTE_PROGRAMMES)) {
       const cur = await repo.docGet<any>("content", id);
       // Replace missing content or my earlier SAMPLE content; keep anything the owner has written themselves.
-      if (cur && cur.summary && !OLD_SAMPLE_SUMMARIES.includes(cur.summary)) { log(`  programme ${id}: you have edited it, so it was kept`); continue; }
-      const carry = id === "regular-3y" && cur ? { courses: cur.courses, curriculum: cur.curriculum, benefits: cur.benefits } : { courses: [], curriculum: [], benefits: [] };
+      if (!force && cur && cur.summary && !OLD_SAMPLE_SUMMARIES.includes(cur.summary)) { log(`  programme ${id}: you have edited it, so it was kept`); continue; }
+      const carry = !force && id === "regular-3y" && cur
+  ? {
+      courses: cur.courses,
+      curriculum: cur.curriculum,
+      benefits: cur.benefits,
+    }
+  : {
+      courses: [],
+      curriculum: [],
+      benefits: [],
+    };
       must(`programme ${id}`, await saveContent(repo, id, { open: true, published: true, intakeNote: OLD_SAMPLE_PROGRAMME_NOTE, ...carry, ...c, requirements: id === "regular-3y" ? REG_REQUIREMENTS : INT_REQUIREMENTS, accommodation: c.accommodation ?? { available: null, note: null } })); done.push(id);
     }
     await repo.docPut("meta", "seed-institute-v1", { at: new Date().toISOString() });
   }
-  if (!(await repo.docGet("settings", "institute"))) { must("institute details", await saveInstitute(repo, INSTITUTE)); done.push("institute details"); }
+  if (force || !(await repo.docGet("settings", "institute"))) { must("institute details", await saveInstitute(repo, INSTITUTE)); done.push("institute details"); }
   log(done.length ? `vocational institute: ${done.join(", ")}` : "vocational institute: already configured, skipped");
   if ((await repo.docList("portfolio")).length) log("vocational photos: already has content, skipped");
   else { let sort = 0; for (const [kind, title, caption, img, alt] of PORTFOLIO) must("portfolio photo", await saveMedia(repo, "portfolio", { kind, title, caption, imageUrl: m(img), imageAlt: alt, variantId: null, published: true, sort: sort++ })); log(`vocational photos: ${PORTFOLIO.length}`); }

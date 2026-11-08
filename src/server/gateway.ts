@@ -27,7 +27,7 @@ export class BachsGateway implements PaymentGateway {
       });
       const text = await res.text();
       let json: any = null; try { json = JSON.parse(text); } catch { /* non-JSON error body */ }
-      if (!res.ok) throw new GatewayError(`Bachs responded ${res.status}`, res.status >= 500 || res.status === 429);
+      if (!res.ok) { console.error("Bachs error", res.status, text); throw new GatewayError(`Bachs responded ${res.status}`, res.status >= 500 || res.status === 429); }
       if (!json || typeof json.checkout_id !== "string" || typeof json.checkout_url !== "string") throw new GatewayError("Unexpected Bachs response", true);
       return { checkoutId: json.checkout_id, checkoutUrl: json.checkout_url };
     } catch (e) {
