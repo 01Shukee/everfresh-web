@@ -2,10 +2,11 @@ import { site } from "@/config/site";
 import { Button } from "@/components/ui/Button";
 import { MediaSlot } from "@/components/ui/MediaSlot";
 import { Tag } from "@/components/ui/Tag";
+import { feeNote } from "@/lib/voc-view";
 
 const programmes = [
   { name: "Regular programme", length: "3 years", fee: "regular" as const },
-  { name: "Intensive programme", length: "1 month, 3 months or 6 months", fee: "intensive" as const },
+  { name: "Intensive programme", length: "1 month to 1 year, plus special courses", fee: "intensive" as const },
 ];
 
 /** photo: the first published "project" photo from Admin > Vocational studies > Photos. Without one, the labelled placeholder shows as before. */
@@ -25,7 +26,7 @@ export function StudiesIntro({ photo, fees }: { photo?: { src: string; alt: stri
               </div>
             ))}
           </div>
-          <p className="small dim">Application form fee: &#8358;{site.applicationFeeNaira.toLocaleString("en-NG")}, non-refundable and separate from tuition.</p>
+          <p className="small dim">Application form fee: &#8358;{site.applicationFeeNaira.toLocaleString("en-NG")}, {feeNote()}.</p>
           <Button href="/vocational-studies">Explore programmes</Button>
         </div>
         <figure className="plate-wide">

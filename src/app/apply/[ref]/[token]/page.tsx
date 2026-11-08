@@ -12,5 +12,5 @@ export default async function EditApplication({ params }: { params: Promise<{ re
   if (!["draft", "awaiting_payment"].includes(v.status) || v.payment.status === "paid") notFound();
   const d = v.details;
   return <section className="wrap sec"><span className="lab green">Application {v.ref}</span><h1 className="serif page-title">Correct your details.</h1>
-    <ApplyWizard options={await loadOptions()} initialVariant={v.variantId} resume={{ ref, token }} initial={{ variantId: v.variantId, course: v.course, details: { fullName: d.fullName, phone: d.phone, email: d.email, dob: d.dob ?? "", address: d.address, education: d.education ?? "", emergencyName: d.emergencyName ?? "", emergencyPhone: d.emergencyPhone ?? "", additional: d.additional ?? "" } }} /></section>;
+    <ApplyWizard options={await loadOptions()} initialVariant={v.variantId} resume={{ ref, token }} initial={{ variantId: v.variantId, course: v.course, courses: v.courses, accommodation: v.accommodation, details: { fullName: d.fullName, phone: d.phone, email: d.email, dob: d.dob ?? "", address: d.address, education: d.education ?? "", emergencyName: d.emergencyName ?? "", emergencyPhone: d.emergencyPhone ?? "", additional: d.additional ?? "" } }} /></section>;
 }

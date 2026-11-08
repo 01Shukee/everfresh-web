@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { variantById, vocConfig } from "../../config/vocational";
+import { VARIANTS, variantById, vocConfig } from "../../config/vocational";
 import { newRef } from "../../lib/ids";
 import type { ApiResult } from "../admin-api";
 import { UniqueViolation, type Repo } from "../repo";
@@ -14,7 +14,7 @@ const kobo = (v: unknown) => (typeof v === "number" && Number.isSafeInteger(v) &
 
 export async function listApplications(repo: Repo, status?: string) {
   const all = (await repo.docList<Application>("app")).filter((a) => !status || a.status === status).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  return all.map((a) => ({ ref: a.ref, name: a.details.fullName, email: a.details.email, phone: a.details.phone, variantId: a.variantId, programme: variantById(a.variantId)!.label, duration: variantById(a.variantId)!.durationLabel, course: a.course, status: a.status, paymentStatus: a.payment.status, createdAt: a.createdAt, submittedAt: a.submittedAt }));
+  return all.map((a) => ({ ref: a.ref, name: a.details.fullName, email: a.details.email, phone: a.details.phone, variantId: a.variantId, programme: variantById(a.variantId)!.label, duration: variantById(a.variantId)!.durationLabel, course: a.course, courses: a.courses ?? (a.course ? [a.course] : []), accommodation: a.accommodation ?? null, status: a.status, paymentStatus: a.payment.status, createdAt: a.createdAt, submittedAt: a.submittedAt }));
 }
 export async function adminApplication(repo: Repo, ref: string) {
   const a = await getApp(repo, ref); if (!a) return null;
@@ -80,20 +80,21 @@ async function recordManualPaymentImpl(repo: Repo, number: string, raw: unknown,
 export async function saveContent(repo: Repo, variantId: string, raw: unknown): Promise<ApiResult> {
   if (!variantById(variantId)) return { status: 404, body: { error: "Unknown programme option." } }; if (!isRec(raw)) return bad("Invalid content.");
   const old = await getContent(repo, variantId); const list = (v: unknown, n: number, m: number) => (Array.isArray(v) ? v.map((x) => s(x, m)).filter(Boolean).slice(0, n) : []);
-  const courses = (Array.isArray(raw.courses) ? raw.courses : []).slice(0, 30).map((c: any) => ({ id: s(c?.id, 40) || randomUUID(), name: s(c?.name, 80), description: s(c?.description, 1000) || null }));
+  const courses = (Array.isArray(raw.courses) ? raw.courses : []).slice(0, 30).map((c: any) => ({ id: s(c?.id, 40) || randomUUID(), name: s(c?.name, 80), description: s(c?.description, 1000) || null, role: (c?.role === "choice" ? "choice" : "included") as "choice" | "included", priceKobo: c?.priceKobo === null || c?.priceKobo === undefined ? null : kobo(c.priceKobo) }));
   const curriculum = (Array.isArray(raw.curriculum) ? raw.curriculum : []).slice(0, 30).map((c: any) => ({ title: s(c?.title, 120), topics: list(c?.topics, 30, 200) }));
-  const fees = (Array.isArray(raw.fees) ? raw.fees : []).slice(0, 20).map((f: any) => ({ id: s(f?.id, 40) || randomUUID(), label: s(f?.label, 80), kind: f?.kind, amountKobo: f?.amountKobo === null || f?.amountKobo === undefined ? null : kobo(f.amountKobo), note: s(f?.note, 200) || null }));
+  const fees = (Array.isArray(raw.fees) ? raw.fees : []).slice(0, 20).map((f: any) => ({ id: s(f?.id, 40) || randomUUID(), label: s(f?.label, 80), kind: f?.kind, amountKobo: f?.amountKobo === null || f?.amountKobo === undefined ? null : kobo(f.amountKobo), note: s(f?.note, 200) || null, appliesTo: f?.appliesTo === "hostel" || f?.appliesTo === "day" ? f.appliesTo : "all", phase: f?.phase === "yearly" || f?.phase === "graduation" ? f.phase : "intake" }));
   if (courses.some((c) => !c.name) || curriculum.some((c) => !c.title) || fees.some((f) => !f.label || !["tuition", "accommodation", "other"].includes(f.kind))) return bad("Check course names, module titles and fee lines.");
   if ((Array.isArray(raw.fees) ? raw.fees : []).some((f: any) => f?.amountKobo !== null && f?.amountKobo !== undefined && kobo(f.amountKobo) === null)) return bad("Fee amounts must be whole kobo or left empty (to be confirmed).");
+  if ((Array.isArray(raw.courses) ? raw.courses : []).some((c: any) => c?.priceKobo !== null && c?.priceKobo !== undefined && kobo(c.priceKobo) === null)) return bad("Course prices must be whole kobo or left empty.");
+  const nChoice = courses.filter((c) => c.role === "choice").length; const choose = Number.isInteger(raw.choose) && (raw.choose as number) > 0 ? (raw.choose as number) : 0;
+  if (choose > nChoice) return bad(`Applicants are asked to choose ${choose} course(s) but only ${nChoice} are marked as a choice. Mark more courses as [choice] or lower the number.`);
   const a = isRec(raw.accommodation) ? raw.accommodation : {};
-  const c: VariantContent = { variantId: variantId as VariantContent["variantId"], open: raw.open === true, published: raw.published === true, summary: s(raw.summary, 1500) || null, courses, curriculum, requirements: list(raw.requirements, 30, 300), benefits: list(raw.benefits, 20, 200), fees: fees as VariantContent["fees"],
+  const c: VariantContent = { variantId: variantId as VariantContent["variantId"], open: raw.open === true, published: raw.published === true, summary: s(raw.summary, 1500) || null, courses, choose, curriculum, requirements: list(raw.requirements, 30, 300), benefits: list(raw.benefits, 20, 200), fees: fees as VariantContent["fees"],
     accommodation: { available: typeof a.available === "boolean" ? a.available : null, note: s(a.note, 300) || null }, intakeNote: s(raw.intakeNote, 300) || null };
   void old; await repo.docPut("content", variantId, c); return { status: 200, body: c };
 }
 
 type MediaKind = "portfolio" | "video" | "testimonial";
-/** True when the URL's path (not its query or fragment) ends with the pattern, for site paths and https links alike. */
-const pathEndsWith = (u: string, re: RegExp) => { try { return re.test(new URL(u, "https://site.invalid").pathname); } catch { return false; } };
 export async function listMedia(repo: Repo, kind: MediaKind) { return (await repo.docList<{ sort?: number }>(kind)).sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0)); }
 export async function saveMedia(repo: Repo, kind: MediaKind, raw: unknown, id?: string): Promise<ApiResult> {
   if (!isRec(raw)) return bad("Invalid request."); const rid = id ?? randomUUID(); const sort = Number.isInteger(raw.sort) ? (raw.sort as number) : 0; const published = raw.published === true;
@@ -105,15 +106,9 @@ export async function saveMedia(repo: Repo, kind: MediaKind, raw: unknown, id?: 
     const vid = raw.variantId ? variantById(raw.variantId) : null; if (raw.variantId && !vid) return bad("Unknown programme option.");
     item = { id: rid, kind: raw.kind as PortfolioItem["kind"], title: s(raw.title, 100), caption: s(raw.caption, 300), imageUrl: img, imageAlt: s(raw.imageAlt, 140), variantId: (vid?.id ?? null) as PortfolioItem["variantId"], published, sort };
   } else if (kind === "video") {
-    const src = url(raw.src); if (!src || !s(raw.title, 100)) return bad("A video needs a title and an uploaded video or a /media/... path or https URL."); const cap = raw.captions ? url(raw.captions) : null; if (raw.captions && !cap) return bad("Captions must be an uploaded file, a /media/... path or an https URL.");
-    // New and published videos must point at a real file: a Streamable/YouTube/Instagram page link is a web page, so the browser's video player cannot play it. Unpublishing an older item is always allowed.
-    if (published || !id) {
-      if (!pathEndsWith(src, /\.(mp4|m4v|mov|webm|ogv)$/i)) return bad("That video link is a web page, not a video file, so it cannot play on the website. Upload the video file here, or paste a direct link that ends in .mp4 or .webm.");
-      if (cap && !pathEndsWith(cap, /\.vtt$/i)) return bad("Captions must be a WebVTT file ending in .vtt. Upload one here or paste a direct link to it.");
-    }
+    const src = url(raw.src); if (!src || !s(raw.title, 100)) return bad("A video needs a title and a /media/... path or https URL."); const cap = raw.captions ? url(raw.captions) : null; if (raw.captions && !cap) return bad("Captions must be a /media/... path or https URL.");
     if (published && !cap) return bad("Add a captions file before publishing a video (accessibility).");
-    const poster = raw.poster ? url(raw.poster) : null; if (raw.poster && !poster) return bad("The poster image must be an uploaded file, a /media/... path or an https URL.");
-    item = { id: rid, title: s(raw.title, 100), description: s(raw.description, 400), src, poster, captions: cap, published, sort };
+    item = { id: rid, title: s(raw.title, 100), description: s(raw.description, 400), src, poster: raw.poster ? url(raw.poster) : null, captions: cap, published, sort };
   } else {
     if (!s(raw.quote, 600) || !s(raw.name, 80)) return bad("A testimonial needs a quote and a name."); if (published && raw.permission !== true) return bad("Written permission must be confirmed before a testimonial is published.");
     item = { id: rid, quote: s(raw.quote, 600), name: s(raw.name, 80), relation: s(raw.relation, 80), permission: raw.permission === true, published };
@@ -124,7 +119,7 @@ export async function saveMedia(repo: Repo, kind: MediaKind, raw: unknown, id?: 
 
 /** Public, display-ready vocational content: only published items. */
 export async function publicVocational(repo: Repo) {
-  const contents = await Promise.all((["regular-3y", "intensive-1m", "intensive-3m", "intensive-6m"] as const).map((id) => getContent(repo, id)));
+  const contents = await Promise.all(VARIANTS.map((v) => getContent(repo, v.id)));
   const pub = <T extends { published: boolean; sort?: number }>(l: T[]) => l.filter((x) => x.published).sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
   return {
     content: Object.fromEntries(contents.map((c) => [c.variantId, c])) as Record<string, VariantContent>,
@@ -132,12 +127,13 @@ export async function publicVocational(repo: Repo) {
     testimonials: (await repo.docList<Testimonial>("testimonial")).filter((t) => t.published && t.permission),
   };
 }
+
 export async function firstSort(repo: Repo, collection: string): Promise<number> {
   const items = await repo.docList<{ sort?: number }>(collection);
 
   return items.reduce(
     (highest, item) =>
-      Number.isFinite(item.sort) ? Math.max(highest, item.sort!) : highest,
+      Math.max(highest, Number.isFinite(item.sort) ? item.sort! : -1),
     -1
   ) + 1;
 }

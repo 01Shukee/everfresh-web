@@ -4,7 +4,7 @@ export type DoorKey = "food" | "studies" | "catering";
 
 export const doors: { key: DoorKey; title: string; desc: string; href: string }[] = [
   { key: "food", title: "Order food", desc: "Browse the menu. Delivery or pickup, now or scheduled.", href: "/order-food" },
-  { key: "studies", title: "Learn a skill", desc: "Regular 3-year and Intensive 1, 3 or 6 month programmes.", href: "/vocational-studies" },
+  { key: "studies", title: "Learn a skill", desc: "Regular 3-year and Intensive programmes, from 1 month to 1 year.", href: "/vocational-studies" },
   { key: "catering", title: "Plan an event", desc: "Share the date, place and guests. Get a quotation.", href: "/event-catering" },
 ];
 

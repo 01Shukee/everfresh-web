@@ -10,7 +10,9 @@ import { saveOrderingSettings } from "../src/server/ordering-settings";
 import type { Repo } from "../src/server/repo";
 import { saveCateringContent, saveGallery } from "../src/server/catering/service";
 import { defaultSettings, saveSection, type Section } from "../src/server/site/settings";
+import { saveVipCategory, saveVipItem, saveVipSettings } from "../src/server/vip/service";
 import { saveContent, saveMedia } from "../src/server/voc/admin";
+import { saveInstitute } from "../src/server/voc/institute";
 
 type Log = (msg: string) => void;
 const m = (p: string) => `/media/${p}.jpg`;
@@ -36,37 +38,37 @@ const ITEMS: MenuSeed[] = [
   { cat: "showpiece", name: "Emerald Green Tiered Cake", description: "Four square emerald tiers with ornate gold detail. Made to order: please order well ahead.", price: 300_000, groups: [], tags: ["showpiece", "custom"], img: "food/emerald-green-tiered-cake", alt: "Four-tier emerald green cake with ornate gold detail" },
   { cat: "showpiece", name: "Gravity Snack Cake", description: "A tiered gravity cake with a snack pouring down the front. Colours and theme can be customised.", sizes: [["Standard", 85_000], ["Large", 130_000]], groups: [], tags: ["showpiece", "custom"], img: "food/gravity-snack-cake", alt: "Tiered blue and orange gravity cake with snacks pouring down the front" },
 ];
-// Nigerian dishes. No photos of these were supplied, so they use drawn illustrations (public/media/food/illustrations/).
-// Replace each with a real photo from Admin > Menu items when you have one.
-const protein = { name: "Add a protein", min: 0, max: 1, options: [{ name: "Fried chicken", priceKobo: naira(2_500) }, { name: "Grilled turkey", priceKobo: naira(4_500) }, { name: "Beef", priceKobo: naira(1_500) }, { name: "Fried fish", priceKobo: naira(2_500) }] };
-const sides = { name: "Sides", min: 0, max: 2, options: [{ name: "Fried plantain", priceKobo: naira(1_000) }, { name: "Coleslaw", priceKobo: naira(800) }, { name: "Moi moi", priceKobo: naira(1_200) }] };
-const swallow = { name: "Choose your swallow", min: 1, max: 1, options: [{ name: "Pounded yam", priceKobo: 0 }, { name: "Eba", priceKobo: 0 }, { name: "Amala", priceKobo: 0 }, { name: "Semo", priceKobo: 0 }] };
-const extraMeat = { name: "Extra meat", min: 0, max: 2, options: [{ name: "Assorted meat", priceKobo: naira(1_500) }, { name: "Goat meat", priceKobo: naira(2_500) }, { name: "Fish", priceKobo: naira(2_000) }] };
-const NG_CATEGORIES = [{ key: "rice", name: "Rice and Mains" }, { key: "soups", name: "Soups and Swallows" }, { key: "grills", name: "Grills and Small Chops" }, { key: "snacks", name: "Snacks and Pastries" }, { key: "drinks", name: "Drinks" }];
+// Everfresh's real menu, with the prices the business supplied. No photos of these dishes were supplied, so they use drawn
+// illustrations (public/media/food/illustrations/): replace each with a real photo from Admin > Menu items when you have one.
+// Flyer items that have no price yet are NOT seeded (the admin refuses a price of zero): add them in Admin > Menu items.
+const protein = { name: "Add a protein", min: 0, max: 2, options: [{ name: "Chicken", priceKobo: naira(4_000) }, { name: "Ice fish", priceKobo: naira(3_000) }, { name: "Beef", priceKobo: naira(2_000) }, { name: "Turkey", priceKobo: naira(7_000) }] };
+const NG_CATEGORIES = [{ key: "rice", name: "Rice and Pasta" }, { key: "local", name: "Local Dishes" }, { key: "soups", name: "Soups and Swallows" }, { key: "fish", name: "Fish" }];
 const ill = (n: string) => `food/illustrations/${n}`;
-const riceSizes: Sz[] = [["Regular", 3_500], ["Large", 5_000], ["Family tray (serves about 6)", 22_000]];
-const bowlSizes: Sz[] = [["Regular", 4_500], ["Large", 6_500]];
+const dish = (cat: string, name: string, price: number, description: string, img: string, alt: string, tags: string[], groups: any[] = [protein]): MenuSeed => ({ cat, name, price, description, groups, tags, img: ill(img), alt: `Illustration of ${alt}` });
 const NG_ITEMS: MenuSeed[] = [
-  { cat: "rice", name: "Party Jollof Rice", description: "Smoky, tomato-rich party jollof, cooked until every grain is full of flavour. Served with fried plantain.", sizes: riceSizes, groups: [protein, sides], tags: ["nigerian", "rice"], img: ill("jollof-rice"), alt: "Illustration of party jollof rice with fried plantain and tomato slices" },
-  { cat: "rice", name: "Nigerian Fried Rice", description: "Fried rice with peas, carrots and green beans, served with fried plantain.", sizes: riceSizes, groups: [protein, sides], tags: ["nigerian", "rice"], img: ill("fried-rice"), alt: "Illustration of Nigerian fried rice with vegetables and fried plantain" },
-  { cat: "rice", name: "Ofada Rice and Ayamase Sauce", description: "Local ofada rice with a spicy green pepper ayamase sauce and assorted meat.", sizes: [["Regular", 4_500], ["Large", 6_500]], groups: [protein, sides], tags: ["nigerian", "rice", "spicy"], img: ill("ofada-rice"), alt: "Illustration of ofada rice beside a bowl of green ayamase sauce" },
-  { cat: "rice", name: "White Rice and Stew", description: "Steamed white rice with rich tomato and pepper stew.", sizes: [["Regular", 3_000], ["Large", 4_500]], groups: [protein, sides], tags: ["nigerian", "rice"], img: ill("rice-and-stew"), alt: "Illustration of white rice with red tomato stew" },
-  { cat: "soups", name: "Egusi Soup", description: "Melon-seed soup cooked with leafy greens and assorted meat. Choose your swallow.", sizes: bowlSizes, groups: [swallow, extraMeat], tags: ["nigerian", "soup"], img: ill("egusi-soup"), alt: "Illustration of egusi soup in a bowl with a ball of pounded yam" },
-  { cat: "soups", name: "Efo Riro", description: "Rich spinach stew with peppers, locust beans and assorted meat. Choose your swallow.", sizes: bowlSizes, groups: [swallow, extraMeat], tags: ["nigerian", "soup"], img: ill("efo-riro"), alt: "Illustration of efo riro vegetable stew in a bowl with a ball of eba" },
-  { cat: "soups", name: "Ogbono Soup", description: "Thick, draw ogbono soup with assorted meat. Choose your swallow.", sizes: bowlSizes, groups: [swallow, extraMeat], tags: ["nigerian", "soup"], img: ill("ogbono-soup"), alt: "Illustration of ogbono soup in a bowl with a ball of swallow" },
-  { cat: "soups", name: "Goat Meat Pepper Soup", description: "Hot, aromatic pepper soup with tender goat meat. Best enjoyed fresh and steaming.", sizes: [["Regular", 5_000], ["Large", 7_500]], groups: [], tags: ["nigerian", "soup", "spicy"], img: ill("goat-pepper-soup"), alt: "Illustration of a steaming bowl of goat meat pepper soup" },
-  { cat: "grills", name: "Beef Suya", description: "Skewered beef grilled over fire and dusted with spicy yaji, with onions and tomatoes.", sizes: [["Small", 2_500], ["Regular", 4_000], ["Large", 7_000]], groups: [], tags: ["nigerian", "grill", "spicy"], img: ill("beef-suya"), alt: "Illustration of beef suya skewers on a wooden board with onions and tomatoes" },
-  { cat: "grills", name: "Peppered Chicken", description: "Chicken pieces fried and tossed in a hot pepper sauce.", sizes: [["4 pieces", 6_500], ["8 pieces", 12_000]], groups: [], tags: ["nigerian", "grill", "spicy"], img: ill("peppered-chicken"), alt: "Illustration of peppered chicken pieces on a plate" },
-  { cat: "grills", name: "Small Chops Platter", description: "Spring rolls, samosa, puff puff and a dipping sauce, arranged on a platter for sharing. Order ahead for parties.", sizes: [["Small (serves about 5)", 15_000], ["Medium (serves about 10)", 28_000], ["Large (serves about 20)", 50_000]], groups: [], tags: ["nigerian", "party"], img: ill("small-chops-platter"), alt: "Illustration of a small chops platter with spring rolls, samosa and puff puff" },
-  { cat: "snacks", name: "Moi Moi", description: "Steamed bean pudding made with peppers and onions, with a boiled egg.", price: 1_200, groups: [], tags: ["nigerian", "snack"], img: ill("moi-moi"), alt: "Illustration of moi moi wrapped in leaf with a boiled egg slice" },
-  { cat: "snacks", name: "Puff Puff", description: "Soft, golden, sweet fried dough balls, dusted with sugar.", sizes: [["10 pieces", 1_500], ["20 pieces", 2_800]], groups: [], tags: ["nigerian", "snack"], img: ill("puff-puff"), alt: "Illustration of a pile of golden puff puff" },
-  { cat: "snacks", name: "Chin Chin", description: "Crunchy, lightly sweet fried dough bites, packed fresh.", sizes: [["Small bag", 1_500], ["Large bag", 3_000]], groups: [], tags: ["nigerian", "snack"], img: ill("chin-chin"), alt: "Illustration of crunchy golden chin chin on a plate" },
-  { cat: "snacks", name: "Meat Pie", description: "Flaky golden pastry filled with spiced minced meat, potato and carrot.", price: 1_200, groups: [], tags: ["nigerian", "pastry"], img: ill("meat-pie"), alt: "Illustration of a golden meat pie and a halved pie showing the filling" },
-  { cat: "snacks", name: "Akara", description: "Golden bean fritters, fried to order.", sizes: [["5 pieces", 1_500], ["10 pieces", 2_800]], groups: [], tags: ["nigerian", "snack"], img: ill("akara"), alt: "Illustration of golden akara bean fritters on a plate" },
-  { cat: "drinks", name: "Zobo Drink", description: "Chilled hibiscus drink spiced with ginger and cloves.", sizes: [["500 ml", 1_000], ["1 litre", 1_800]], groups: [], tags: ["nigerian", "drink"], img: ill("zobo-drink"), alt: "Illustration of a glass of deep red zobo drink with ice and a lemon slice" },
-  { cat: "drinks", name: "Chapman", description: "Fruity, fizzy Nigerian cocktail-style drink with orange, cucumber and a splash of grenadine. Non-alcoholic.", sizes: [["500 ml", 1_500], ["1 litre", 2_800]], groups: [], tags: ["nigerian", "drink"], img: ill("chapman"), alt: "Illustration of a glass of red chapman with orange and cucumber slices" },
-  { cat: "drinks", name: "Kunu", description: "Traditional millet drink, lightly sweet and served cold.", sizes: [["500 ml", 1_000], ["1 litre", 1_800]], groups: [], tags: ["nigerian", "drink"], img: ill("kunu"), alt: "Illustration of a cold glass of creamy kunu with a straw" },
+  dish("rice", "Jollof Rice", 2_500, "Freshly cooked jollof rice. Add a protein if you like.", "jollof-rice", "jollof rice with fried plantain and tomato slices", ["rice"]),
+  dish("rice", "White Rice and Sauce", 2_500, "White rice served with sauce. Add a protein if you like.", "rice-and-stew", "white rice with red sauce", ["rice"]),
+  dish("rice", "Fried Rice", 2_500, "Freshly cooked fried rice. Add a protein if you like.", "fried-rice", "fried rice with vegetables and fried plantain", ["rice"]),
+  dish("rice", "Native Rice", 3_000, "Native rice served with sauce. Add a protein if you like.", "ofada-rice", "native rice beside a bowl of green sauce", ["rice", "local"]),
+  dish("rice", "Spaghetti", 2_500, "Spaghetti in tomato sauce. Add a protein if you like.", "spaghetti", "spaghetti in tomato sauce", ["pasta"]),
+  dish("local", "Abacha", 2_500, "Abacha (African salad). Add a protein if you like.", "abacha", "abacha, the African salad", ["local"]),
+  dish("local", "Ukwa", 2_500, "Ukwa (African breadfruit seed). Add a protein if you like.", "ukwa", "a bowl of ukwa", ["local"]),
+  dish("local", "Plantain Porridge", 2_500, "Plantain porridge. Add a protein if you like.", "plantain-porridge", "a bowl of plantain porridge", ["local"]),
+  dish("local", "Beans and Yam Porridge", 2_500, "Beans and yam porridge. Add a protein if you like.", "beans-yam-porridge", "a bowl of beans and yam porridge", ["local"]),
+  dish("local", "Golden Yam", 2_500, "Fried golden yam. Add a protein if you like.", "golden-yam", "golden fried yam with a pepper sauce", ["local"]),
+  dish("local", "Moi Moi", 1_000, "Moi moi (bean pudding).", "moi-moi", "moi moi wrapped in leaf with a boiled egg slice", ["local"], []),
+  dish("soups", "Bitter Leaf Soup with Semo", 4_500, "Bitter leaf soup served with semo and 1 beef. Add a protein if you like.", "bitter-leaf-soup", "bitter leaf soup with a ball of semo", ["soup", "swallow"]),
+  dish("soups", "Egusi Soup with Garri", 4_500, "Egusi soup served with garri and 1 beef. Add a protein if you like.", "egusi-garri", "egusi soup with a ball of garri", ["soup", "swallow"]),
+  dish("soups", "Oha Soup with Fufu", 4_500, "Oha soup served with fufu and 1 beef. Add a protein if you like.", "oha-soup", "oha soup with a ball of fufu", ["soup", "swallow"]),
+  dish("soups", "Nsala Soup with Fufu", 4_500, "Nsala soup served with fufu and 1 beef. Add a protein if you like.", "nsala-soup", "nsala soup with a ball of fufu", ["soup", "swallow"]),
+  dish("fish", "Catfish Pepper Soup", 6_000, "Hot, aromatic catfish pepper soup.", "catfish-pepper-soup", "a steaming bowl of catfish pepper soup", ["fish", "soup", "spicy"], []),
+  dish("fish", "Grilled Catfish", 6_000, "Whole grilled catfish.", "grilled-catfish", "a grilled catfish with onion rings and tomato", ["fish", "grill"], []),
 ];
+/** The earlier SAMPLE Nigerian dishes (invented prices) that some databases already hold. They are hidden, not deleted, when the real menu is added. */
+const SAMPLE_NAMES = new Set(["Party Jollof Rice", "Nigerian Fried Rice", "Ofada Rice and Ayamase Sauce", "White Rice and Stew", "Egusi Soup", "Efo Riro", "Ogbono Soup", "Goat Meat Pepper Soup", "Beef Suya", "Peppered Chicken", "Small Chops Platter", "Moi Moi", "Puff Puff", "Chin Chin", "Meat Pie", "Akara", "Zobo Drink", "Chapman", "Kunu"]);
+async function retireSampleDishes(repo: Repo) {
+  for (const i of await repo.listItems()) if (i.tags.includes("nigerian") && i.imageUrl?.startsWith("/media/food/illustrations/") && SAMPLE_NAMES.has(i.name) && i.active) must("hide sample dish", await saveItem(repo, { ...i, active: false }, i.id));
+}
 
 /** Adds categories (reusing any with the same name) and items after whatever the menu already holds. */
 async function addMenuGroup(repo: Repo, cats: { key: string; name: string }[], items: MenuSeed[]) {
@@ -80,12 +82,14 @@ async function addMenuGroup(repo: Repo, cats: { key: string; name: string }[], i
 }
 async function seedMenu(repo: Repo, log: Log) {
   const cats = await repo.listCategories(); const empty = !cats.length && !(await repo.listItems()).length;
-  // Nigerian dishes: on an empty menu, or on a menu that only holds the sample cakes. Once added they are never re-added (even if you delete them).
-  if (await repo.docGet("meta", "seed-nigerian-menu")) log("Nigerian menu: already added, skipped");
-  else if (empty || cats.some((c) => c.name === CATEGORIES[0].name)) {
-    await addMenuGroup(repo, NG_CATEGORIES, NG_ITEMS); await repo.docPut("meta", "seed-nigerian-menu", { at: new Date().toISOString() });
-    log(`Nigerian menu: ${NG_CATEGORIES.length} categories, ${NG_ITEMS.length} dishes with illustrations`);
-  } else log("Nigerian menu: menu already has your own content, skipped");
+  const hadSample = !!(await repo.docGet("meta", "seed-nigerian-menu"));
+  // The real menu goes in on an empty menu, on a menu that only holds the sample cakes, or on one that has the earlier sample dishes (which are then hidden).
+  if (await repo.docGet("meta", "seed-everfresh-menu")) log("Everfresh menu: already added, skipped");
+  else if (empty || hadSample || cats.some((c) => c.name === CATEGORIES[0].name)) {
+    if (hadSample) await retireSampleDishes(repo);
+    await addMenuGroup(repo, NG_CATEGORIES, NG_ITEMS); await repo.docPut("meta", "seed-everfresh-menu", { at: new Date().toISOString() });
+    log(`Everfresh menu: ${NG_ITEMS.length} dishes with your prices${hadSample ? " (the earlier sample dishes were hidden)" : ""}`);
+  } else log("Everfresh menu: menu already has your own content, skipped");
   if (!empty) return log("cake menu: menu already has content, skipped");
   await addMenuGroup(repo, CATEGORIES, ITEMS); log(`cake menu: ${CATEGORIES.length} categories, ${ITEMS.length} cakes with photos`);
 }
@@ -106,14 +110,14 @@ async function seedOrdering(repo: Repo, log: Log) {
 // ---------------------------------------------------------------- website content (about, homepage, contact, FAQs)
 const SITE = {
   business: { description: "Everfresh brings three services together: freshly made cakes and food to order, hands-on vocational training in baking and catering, and event catering for celebrations of every size." },
-  contact: { hours: ["Monday to Saturday, 8:00am to 7:00pm", "Sunday: closed"] },
+  contact: { hours: ["Monday to Saturday, 8:00am to 7:00pm", "Sunday: closed"], address: "No 1 Regent Street, Nnewi", city: "Nnewi" },
   about: {
     intro: "Everfresh is a food and training business. We bake to order, teach practical baking and catering skills, and cater events from small family celebrations to large gatherings.",
     mission: "To serve fresh, well-made food, and to help people turn passion into a practical skill they can build a living on.",
     values: ["Freshness in every order", "Skill learned by doing", "Clear prices and honest quotations", "Respect for every customer and student", "Care in how we present and serve"],
     history: "Everfresh Creations Ltd serves customers through three connected services: a cake and food ordering kitchen, a vocational school for baking and catering, and an event catering team.\n\nOur trainees learn by making real cakes and food, and present their work at showcase events. Photos from those events are in the galleries on this site.",
     foodInfo: "Order cakes online for delivery or pickup, now or scheduled for the date you need. Every cake is made to order.",
-    vocationalInfo: "Regular 3-year and Intensive 1, 3 and 6 month programmes in baking, cake decoration and catering, taught through hands-on practice.",
+    vocationalInfo: "The Vocational Institute in Nnewi offers a 3-year Regular Programme and Intensive programmes from 1 month to 1 year, taught through hands-on practice.",
     cateringInfo: "Tell us the date, place and number of guests, and we will prepare a quotation for your event.",
     credentials: [] as string[],
     photos: [
@@ -150,7 +154,7 @@ const SITE = {
     { q: "Can I schedule an order in advance?", a: "Yes. Choose a date and time at checkout. Scheduled orders need at least 24 hours' notice and can be booked up to 30 days ahead." },
     { q: "How does delivery work, and what does it cost?", a: "Delivery fees depend on your delivery area and are shown at checkout before you pay. You can also collect your order from our pickup point." },
     { q: "How do I pay?", a: "You pay securely online by card or bank transfer at checkout." },
-    { q: "How do I apply for a vocational programme?", a: "Choose a programme, complete the application form and pay the ₦5,000 application-form fee. The fee is non-refundable and separate from tuition. Admission decisions are made after your fee payment is confirmed." },
+    { q: "How do I apply for a vocational programme?", a: "Choose a programme, complete the application form and pay the ₦5,000 application-form fee. The fee is non-refundable and is deducted from your total fees. Your programme invoice appears automatically once the payment is confirmed, and you pay the balance there." },
     { q: "How do I get a quotation for an event?", a: "Open Event Catering and fill in the quotation form with your date, place, number of guests and needs. Your request opens in WhatsApp: press Send so it reaches us." },
     { q: "Can I track my order or application?", a: "Yes. Use the private link we sent you, or use \"Find my order or application\" at the bottom of any page." },
   ].map((f, sort) => ({ ...f, published: true, sort })),
@@ -164,45 +168,59 @@ async function seedSite(repo: Repo, log: Log) {
   await put("about", SITE.about);
   await put("homepage", SITE.homepage);
   await put("faqs", SITE.faqs);
+  if (!(await repo.docGet("meta", "seed-institute-address"))) {
+    const st = ((await repo.docGet<Record<string, any>>("site", "main")) ?? {}).contact;
+    if (st && !st.address) { const r = await saveSection(repo, "contact", { ...st, address: "No 1 Regent Street, Nnewi", city: st.city ?? "Nnewi" }); mustOk("site/contact address", r as any); done.push("address"); }
+    await repo.docPut("meta", "seed-institute-address", { at: new Date().toISOString() });
+  }
   log(done.length ? `website content: ${done.join(", ")}` : "website content: already configured, skipped");
 }
 
-// ---------------------------------------------------------------- vocational studies
-const REQUIREMENTS = ["Completed application form", "Application-form fee paid (₦5,000, non-refundable)", "An interest in baking, cooking or hospitality; no prior experience needed", "A working phone number and email address"];
-const VOC: Record<string, any> = {
-  "regular-3y": {
-    summary: "A three-year programme that builds your skills step by step, from kitchen fundamentals to advanced cake design and event service, with practical assessments throughout and a final showcase project.",
-    courses: [{ name: "Cake Baking and Decoration", description: "Sponge and buttercream, fondant work, tiered and sculpted cakes." }, { name: "Pastry and Confectionery", description: "Doughs, pies, pastries, cookies and small chops." }, { name: "Culinary Arts", description: "Nigerian and continental cooking, kitchen safety and costing." }, { name: "Event Catering and Service", description: "Menu planning, buffet and plated service, and event-day management." }],
-    curriculum: [{ title: "Year 1: Foundations", topics: ["Kitchen safety and hygiene", "Ingredients, measuring and equipment", "Basic cakes and doughs", "Introduction to costing"] }, { title: "Year 2: Skills development", topics: ["Tiered cakes and fondant work", "Pastry and snack production", "Nigerian and continental menus", "Pricing and customer service"] }, { title: "Year 3: Specialisation and showcase", topics: ["Cake sculpting and showpiece design", "Event catering practice", "Running a small food business", "Final showcase project"] }],
-    benefits: ["Hands-on practice in every session", "Work presented at showcase events", "A clear path from basic skills to specialisation"],
-    fees: [{ label: "Tuition (per year)", kind: "tuition", amountKobo: naira(450_000), note: "Payable per year" }, { label: "Practical materials (per year)", kind: "other", amountKobo: naira(60_000), note: null }],
-    intakeNote: "Intake dates are confirmed by admissions after you apply.",
-  },
-  "intensive-1m": {
-    summary: "A one-month, hands-on course for learning a single skill quickly. Ideal if you want to start making and selling cakes and small chops soon.",
-    courses: [{ name: "Cake Baking Basics", description: "Mixing, baking, levelling, buttercream finishes and simple decoration." }, { name: "Small Chops and Snacks", description: "Puff puff, chin chin, spring rolls, samosa and meat pie." }],
-    curriculum: [{ title: "Week 1: Basics", topics: ["Kitchen safety and hygiene", "Equipment and measuring", "Sponge and butter cakes"] }, { title: "Week 2: Finishing", topics: ["Buttercream and icing", "Simple piping and decoration"] }, { title: "Week 3: Snacks", topics: ["Doughs and frying", "Small chops production"] }, { title: "Week 4: Practice", topics: ["Costing and pricing", "Packaging and presentation", "Final practical"] }],
-    benefits: ["Start earning from your skill quickly", "Small class practice time"],
-    fees: [{ label: "Tuition", kind: "tuition", amountKobo: naira(120_000), note: null }, { label: "Practical materials", kind: "other", amountKobo: naira(20_000), note: null }],
-    intakeNote: "Intake dates are confirmed by admissions after you apply.",
-  },
-  "intensive-3m": {
-    summary: "A three-month course that covers cake decoration and pastry in depth, with regular practical sessions and a final presentation of your work.",
-    courses: [{ name: "Cake Baking and Decoration", description: "From sponge to tiered cakes with buttercream and fondant." }, { name: "Pastry and Small Chops", description: "Pies, pastries, doughs and snack production." }],
-    curriculum: [{ title: "Month 1: Foundations", topics: ["Kitchen safety and hygiene", "Sponge and butter cakes", "Buttercream and icing"] }, { title: "Month 2: Decoration and pastry", topics: ["Fondant covering and modelling", "Tiered cake assembly", "Pastry and dough work"] }, { title: "Month 3: Practice and presentation", topics: ["Costing and pricing", "Customer orders and packaging", "Final presentation"] }],
-    benefits: ["Practical sessions every week", "Final presentation of your work"],
-    fees: [{ label: "Tuition", kind: "tuition", amountKobo: naira(280_000), note: null }, { label: "Practical materials", kind: "other", amountKobo: naira(40_000), note: null }],
-    intakeNote: "Intake dates are confirmed by admissions after you apply.",
-  },
-  "intensive-6m": {
-    summary: "A six-month course for serious learners: advanced cake decoration, sculpted showpiece cakes, pastry and the basics of event catering, finishing with a showcase of your work.",
-    courses: [{ name: "Cake Baking and Decoration", description: "Fondant, piping, tiered cakes and finishing." }, { name: "Pastry and Confectionery", description: "Doughs, pastries, pies and small chops." }, { name: "Cake Sculpting and Showpiece Design", description: "Shaped, themed and gravity cakes for special occasions." }, { name: "Event Catering Basics", description: "Menu planning, portioning and service for events." }],
-    curriculum: [{ title: "Months 1 and 2: Foundations", topics: ["Kitchen safety and hygiene", "Sponge and butter cakes", "Buttercream, icing and piping"] }, { title: "Months 3 and 4: Advanced decoration and pastry", topics: ["Fondant work and tiered cakes", "Pastry and snack production", "Costing and pricing"] }, { title: "Months 5 and 6: Showpieces and events", topics: ["Cake sculpting and gravity cakes", "Event catering basics", "Showcase project"] }],
-    benefits: ["Showpiece cake training", "Work presented at a showcase event", "Introduction to event catering"],
-    fees: [{ label: "Tuition", kind: "tuition", amountKobo: naira(480_000), note: null }, { label: "Practical materials", kind: "other", amountKobo: naira(70_000), note: null }],
-    intakeNote: "Intake dates are confirmed by admissions after you apply.",
-  },
+// ---------------------------------------------------------------- vocational studies (the Vocational Institute, Nnewi)
+// Fees, requirements and courses come from the institute's fee sheet. Markers: [hostel]/[day] = that student type only, [yearly] = later years, [graduation] = due at graduation.
+const REG_FEES = [
+  ["Acceptance fee", "other", 5_000, "Paid first when you apply; it is part of the total and is credited on your invoice"], ["Tuition and registration", "tuition", 35_000], ["Hostel fee", "accommodation", 20_000, null, "hostel"], ["Practical wear", "other", 7_500], ["Exam", "other", 5_000],
+  ["I.D card", "other", 5_000], ["Sanitation", "other", 5_000], ["Practical fees", "other", 20_000], ["Uniform", "other", 8_000], ["Matriculation fees", "other", 10_000],
+  ["Hostel fee (each later year)", "accommodation", 20_000, null, "hostel", "yearly"], ["Tuition (each later year)", "tuition", 35_000, null, null, "yearly"], ["Practical fee (each later year)", "other", 20_000, null, null, "yearly"], ["Exam (each later year)", "other", 5_000, null, null, "yearly"], ["Maintenance (each later year)", "other", 5_000, null, null, "yearly"],
+] as const;
+const feeLines = (rows: readonly (readonly (string | number | null)[])[]) => rows.map(([label, kind, naira_, note, appliesTo, phase]) => ({ label, kind, amountKobo: naira(naira_ as number), note: note ?? null, appliesTo: appliesTo ?? "all", phase: phase ?? "intake" }));
+const REG_REQUIREMENTS = ["4 passport photographs", "2 office files", "Medical lab results: HIV, Hepatitis B and C, VDRL, physical fitness, blood group and genotype (lab tests: Santa Maria Diagnosis, opposite Teaching Hospital, Nnewi, 08132556284)", "2 Cornerstone tissue and 2 packs of 1 kg detergent", "1 original mop and 1 tile brush", "Result (WAEC or NECO)", "Identification letter (L.G.A. or church)", "1 Bible (compulsory)", "File all documents, originals and photocopies, and bring them to the admission desk"];
+const INT_REQUIREMENTS = ["1 passport photograph and 1 office file", "Medical lab results: HIV, genotype and blood group", "2 Cornerstone tissue, 2 packs of 1 kg detergent, 1 tile broom and 1 packet of whiteboard marker", "Result and identification letter", "File all documents, originals and photocopies, and bring them to the admission desk"];
+const INT_FEES = [["Practical wear", "other", 5_000], ["Graduation and project fee", "other", 50_000, "Payable on the date of graduation", null, "graduation"]] as const;
+const named = (names: string[]) => names.map((name) => ({ name, description: null, role: "included" as const, priceKobo: null }));
+const pickable = (rows: [string, number | null][]) => rows.map(([name, p]) => ({ name, description: null, role: "choice" as const, priceKobo: p === null ? null : naira(p) }));
+const INSTITUTE_PROGRAMMES: Record<string, any> = {
+  "regular-3y": { summary: "The Regular Programme runs for 3 years at the Vocational Institute, Nnewi. Year 1 is the new-intake year; fees for later years are charged yearly. Students can attend as day students or in the hostel.", fees: feeLines(REG_FEES), requirements: REG_REQUIREMENTS, accommodation: { available: true, note: "Hostel students also bring: foam, 2 pots, 2 buckets, a stove, a cupboard, a 1-gallon container for water, food stuff and similar items." } },
+  "intensive-1m": { summary: "A one-month intensive training in one course of your choice. The price depends on the course you choose.", courses: pickable([["Varieties of Food", 150_000], ["Pastries", 150_000], ["Craft", 100_000], ["Cosmetology", 70_000], ["Hair styling", 70_000], ["Decoration", 70_000], ["Cocktails, Smoothies, Juices etc.", 100_000], ["Make-up and Gele tying", 100_000]]), choose: 1, fees: feeLines(INT_FEES) },
+  "intensive-3m": { summary: "A three-month intensive package covering pastries, sugar craft, bread, continental and intercontinental dishes, barbecue and fashion design.", courses: named(["Pastries", "Sugar craft", "Bread", "Varieties of food (Continental and Intercontinental)", "Barbecue", "Fashion design"]), fees: feeLines([["Tuition", "tuition", 350_000], ...INT_FEES]) },
+  "intensive-6m": { summary: "A six-month intensive package covering pastries, sugar craft, continental and intercontinental dishes and barbecue.", courses: named(["Pastries", "Sugar craft", "Varieties of dish (Continental and Intercontinental)", "Barbecue (varieties)"]), fees: feeLines([["Tuition", "tuition", 500_000], ...INT_FEES]) },
+  "intensive-1y": { summary: "The complete one-year package: all of the six-month training, plus any two more courses of your choice.", courses: [...named(["Complete package: everything in the 6-month training (pastries, sugar craft, dishes and barbecue)"]), ...pickable([["Cosmetology", null], ["Craft", null], ["Hair styling", null], ["Bead making", null], ["Fashion design", null], ["Decoration", null]])], choose: 2, fees: feeLines([["Tuition", "tuition", 750_000], ...INT_FEES]) },
+  "intensive-special": { summary: "Short specialist courses. Choose one: shawarma and pizza, yogurt, ice cream, or fashion (male and female).", courses: pickable([["Shawarma and Pizza", 350_000], ["Yogurt", 350_000], ["Ice cream", 350_000], ["Fashion (male and female)", 200_000]]), choose: 1, fees: feeLines(INT_FEES) },
 };
+const OLD_SAMPLE_SUMMARIES = ["A three-year programme that builds your skills step by step, from kitchen fundamentals to advanced cake design and event service, with practical assessments throughout and a final showcase project.", "A one-month, hands-on course for learning a single skill quickly. Ideal if you want to start making and selling cakes and small chops soon.", "A three-month course that covers cake decoration and pastry in depth, with regular practical sessions and a final presentation of your work.", "A six-month course for serious learners: advanced cake decoration, sculpted showpiece cakes, pastry and the basics of event catering, finishing with a showcase of your work."];
+const OLD_SAMPLE_PROGRAMME_NOTE = "Intake dates are confirmed by admissions after you apply.";
+const INSTITUTE = { name: "Vocational Institute", address: "No 1 Regent Street, Nnewi", phones: ["08101032983", "08083143342", "08035006435", "08038472422", "09033697799"], note: "For confirmation: Engr. Ibezim Ojukwu 08133300777" };
+async function seedVocational(repo: Repo, log: Log) {
+  const done: string[] = [];
+  if (!(await repo.docGet("meta", "seed-institute-v1"))) {
+    for (const [id, c] of Object.entries(INSTITUTE_PROGRAMMES)) {
+      const cur = await repo.docGet<any>("content", id);
+      // Replace missing content or my earlier SAMPLE content; keep anything the owner has written themselves.
+      if (cur && cur.summary && !OLD_SAMPLE_SUMMARIES.includes(cur.summary)) { log(`  programme ${id}: you have edited it, so it was kept`); continue; }
+      const carry = id === "regular-3y" && cur ? { courses: cur.courses, curriculum: cur.curriculum, benefits: cur.benefits } : { courses: [], curriculum: [], benefits: [] };
+      must(`programme ${id}`, await saveContent(repo, id, { open: true, published: true, intakeNote: OLD_SAMPLE_PROGRAMME_NOTE, ...carry, ...c, requirements: id === "regular-3y" ? REG_REQUIREMENTS : INT_REQUIREMENTS, accommodation: c.accommodation ?? { available: null, note: null } })); done.push(id);
+    }
+    await repo.docPut("meta", "seed-institute-v1", { at: new Date().toISOString() });
+  }
+  if (!(await repo.docGet("settings", "institute"))) { must("institute details", await saveInstitute(repo, INSTITUTE)); done.push("institute details"); }
+  log(done.length ? `vocational institute: ${done.join(", ")}` : "vocational institute: already configured, skipped");
+  if ((await repo.docList("portfolio")).length) log("vocational photos: already has content, skipped");
+  else { let sort = 0; for (const [kind, title, caption, img, alt] of PORTFOLIO) must("portfolio photo", await saveMedia(repo, "portfolio", { kind, title, caption, imageUrl: m(img), imageAlt: alt, variantId: null, published: true, sort: sort++ })); log(`vocational photos: ${PORTFOLIO.length}`); }
+  if ((await repo.docList("testimonial")).length) return log("testimonials: already has content, skipped");
+  // Drafts only: never published, permission not recorded. A testimonial must be a real student's words with written permission.
+  for (const [quote, relation] of [["Replace this sample with a real student's words, then record their permission and publish it.", "Sample · Regular Programme"], ["Replace this sample with a real graduate's words, then record their permission and publish it.", "Sample · Intensive Programme"]]) must("testimonial", await saveMedia(repo, "testimonial", { quote, name: "Sample student", relation, permission: false, published: false }));
+  log("testimonials: 2 unpublished sample drafts");
+}
 // kind, title, caption, image (relative to /media), alt. Order matters: the Vocational Studies hero uses the first project, instructor and facility.
 type P = [string, string, string, string, string];
 const PORTFOLIO: P[] = [
@@ -253,20 +271,20 @@ const PORTFOLIO: P[] = [
   ["student", "Student with a treasure chest cake", "A chest cake with a feather and bottle topper.", "projects/student-treasure-chest-cake-feather", "Student in chef whites behind a treasure chest cake with a white feather"],
   ["student", "Student with an emerald cake", "A tiered emerald cake with gold detail.", "projects/student-emerald-cake", "Student in chef whites beside an emerald green tiered cake"],
 ];
-async function seedVocational(repo: Repo, log: Log) {
-  const out: string[] = [];
-  for (const [id, c] of Object.entries(VOC)) {
-    if (await repo.docGet("content", id)) continue;
-    // open + published so the sample can be walked through end to end. Switch "Accepting applications" off in the admin until real programme details and fees are confirmed.
-    must(`programme ${id}`, await saveContent(repo, id, { open: true, published: true, ...c, requirements: REQUIREMENTS, accommodation: { available: null, note: null } })); out.push(id);
-  }
-  log(out.length ? `vocational programmes: ${out.join(", ")}` : "vocational programmes: already configured, skipped");
-  if ((await repo.docList("portfolio")).length) log("vocational photos: already has content, skipped");
-  else { let sort = 0; for (const [kind, title, caption, img, alt] of PORTFOLIO) must("portfolio photo", await saveMedia(repo, "portfolio", { kind, title, caption, imageUrl: m(img), imageAlt: alt, variantId: null, published: true, sort: sort++ })); log(`vocational photos: ${PORTFOLIO.length}`); }
-  if ((await repo.docList("testimonial")).length) return log("testimonials: already has content, skipped");
-  // Drafts only: never published, permission not recorded. A testimonial must be a real student's words with written permission.
-  for (const [quote, relation] of [["Replace this sample with a real student's words, then record their permission and publish it.", "Sample · Regular Programme"], ["Replace this sample with a real graduate's words, then record their permission and publish it.", "Sample · Intensive Programme"]]) must("testimonial", await saveMedia(repo, "testimonial", { quote, name: "Sample student", relation, permission: false, published: false }));
-  log("testimonials: 2 unpublished sample drafts");
+// ---------------------------------------------------------------- VIP menu (separate from the regular menu; starts as a read-only static menu)
+const VIP_STARTER: [string, [string, number, string, string][]][] = [
+  ["Mains", [["Jollof Rice", 2_500, "Freshly cooked jollof rice.", "jollof-rice"], ["Fried Rice", 2_500, "Freshly cooked fried rice.", "fried-rice"], ["Native Rice", 3_000, "Native rice served with sauce.", "ofada-rice"]]],
+  ["Soups and Swallows", [["Egusi Soup with Garri", 4_500, "Egusi soup served with garri and 1 beef.", "egusi-garri"], ["Oha Soup with Fufu", 4_500, "Oha soup served with fufu and 1 beef.", "oha-soup"]]],
+  ["Fish", [["Grilled Catfish", 6_000, "Whole grilled catfish.", "grilled-catfish"], ["Catfish Pepper Soup", 6_000, "Hot, aromatic catfish pepper soup.", "catfish-pepper-soup"]]],
+  ["Sides", [["Moi Moi", 1_000, "Moi moi (bean pudding).", "moi-moi"]]],
+];
+async function seedVip(repo: Repo, log: Log) {
+  if ((await repo.docList("vipcat")).length || (await repo.docList("vipitem")).length) return log("VIP menu: already has content, skipped");
+  // Starts as a static (read-only) menu; switch to WhatsApp ordering in Admin > VIP menu > Ordering and settings. These are sample prices to edit.
+  if (!(await repo.docGet("settings", "vip"))) must("VIP settings", await saveVipSettings(repo, { enabled: true, mode: "static", title: "VIP Menu", tableLabel: "Table" }));
+  let sort = 0, cs = 0;
+  for (const [name, list] of VIP_STARTER) { const cat = must("VIP category", await saveVipCategory(repo, { name, sort: cs++, active: true })); for (const [n, price, description, img] of list) must("VIP item", await saveVipItem(repo, { name: n, categoryId: cat.id, description, priceKobo: naira(price), imageUrl: m(`food/illustrations/${img}`), imageAlt: `Illustration of ${n}`, available: true, active: true, sort: sort++ })); }
+  log(`VIP menu: ${VIP_STARTER.length} categories, ${VIP_STARTER.reduce((t, [, l]) => t + l.length, 0)} sample items (static mode)`);
 }
 
 // ---------------------------------------------------------------- event catering
@@ -314,7 +332,7 @@ async function seedCatering(repo: Repo, log: Log) {
 
 export async function seedAll(repo: Repo, log: Log = console.log) {
   // Each area is independent: one failing does not stop the rest, and everything is safe to re-run.
-  const steps: [string, () => Promise<void>][] = [["menu", () => seedMenu(repo, log)], ["delivery and pickup", () => seedOrdering(repo, log)], ["website content", () => seedSite(repo, log)], ["vocational studies", () => seedVocational(repo, log)], ["event catering", () => seedCatering(repo, log)]];
+  const steps: [string, () => Promise<void>][] = [["menu", () => seedMenu(repo, log)], ["delivery and pickup", () => seedOrdering(repo, log)], ["website content", () => seedSite(repo, log)], ["vocational studies", () => seedVocational(repo, log)], ["event catering", () => seedCatering(repo, log)], ["VIP menu", () => seedVip(repo, log)]];
   const failed: string[] = [];
   for (const [name, run] of steps) { try { await run(); } catch (e) { failed.push(name); log(`FAILED  ${name}: ${(e as Error).message}`); } }
   const live = !!(await repo.docGet("content", "regular-3y"));

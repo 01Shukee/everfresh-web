@@ -1,5 +1,6 @@
 import type { ApiResult } from "../admin-api";
 import { setApplicationStatus, adminApplication, createInvoice, listApplications, listMedia, recordManualPayment, saveContent, saveMedia, updateInvoice } from "./admin";
+import { getInstitute, saveInstitute } from "./institute";
 import { appForToken, createApplication, getContent, invoicesFor, ownerView, startApplicationPayment, startInvoicePayment, updateApplication, type VocDeps } from "./applications";
 import type { Application, Invoice, Receipt } from "./model";
 import { chromiumPdf, confirmationHtml, invoiceHtml, receiptHtml } from "./pdf";
@@ -43,6 +44,7 @@ export async function adminVocApi(d: VocDeps, method: string, path: string[], bo
     if (sub === "pdf" && method === "GET") { const inv = await d.repo.docGet<Invoice>("invoice", id); const app = inv ? await d.repo.docGet<Application>("app", inv.appRef) : null; return inv && app ? pdf(d, invoiceHtml(inv, app), `invoice-${id}.pdf`) : j(404, { error: "Not found." }); }
   }
   if (r === "receipts" && id && sub === "pdf" && method === "GET") { const rc = await d.repo.docGet<Receipt>("receipt", id); const app = rc ? await d.repo.docGet<Application>("app", rc.appRef) : null; return rc && app ? pdf(d, receiptHtml(rc, app), `receipt-${id}.pdf`) : j(404, { error: "Not found." }); }
+  if (r === "institute") { if (method === "GET") return j(200, await getInstitute(d.repo)); if (method === "PUT") return saveInstitute(d.repo, body); }
   if (r === "content" && id) { if (method === "GET") return j(200, await getContent(d.repo, id)); if (method === "PUT") return saveContent(d.repo, id, body); }
   if (r === "media" && id && ["portfolio", "video", "testimonial"].includes(id)) {
     const kind = id as "portfolio" | "video" | "testimonial";

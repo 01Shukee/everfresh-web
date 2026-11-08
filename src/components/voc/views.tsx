@@ -49,8 +49,8 @@ export function IntensiveView({ content, photo }: { content: Record<string, Vari
     <>
       <section className="vhero gridbg"><div className={`wrap phero ${photo ? "has-photo" : ""}`}><div>
         <span className="lab green">Vocational Studies &middot; Intensive Programme</span>
-        <h1 className="serif page-title big2">Focused training in <em>1, 3 or 6 months.</em></h1>
-        <p className="lede">Compare the three durations side by side. Each has its own course information, fees and application.</p>
+        <h1 className="serif page-title big2">Focused training from <em>1 month to 1 year.</em></h1>
+        <p className="lede">Compare the options side by side. Each has its own course information, fees and application.</p>
       </div><HeroPhoto photo={photo} /></div></section>
       <IntensiveCompare content={content} />
     </>
@@ -77,7 +77,7 @@ export function ApplicationView({ v, refNo, token }: { v: OwnerView; refNo: stri
       <div className="co-grid">
         <div>
           <h2 className="serif">Application</h2>
-          <dl className="dl"><Kv k="Applicant">{v.details.fullName}</Kv><Kv k="Reference"><b className="ordnum">{v.ref}</b></Kv><Kv k="Programme">{v.programme}</Kv><Kv k="Duration">{v.duration}</Kv>{v.course && <Kv k="Course">{v.course}</Kv>}
+          <dl className="dl"><Kv k="Applicant">{v.details.fullName}</Kv><Kv k="Reference"><b className="ordnum">{v.ref}</b></Kv><Kv k="Programme">{v.programme}</Kv><Kv k="Duration">{v.duration}</Kv>{v.courses.length > 0 ? <Kv k={v.courses.length > 1 ? "Courses" : "Course"}>{v.courses.join(", ")}</Kv> : v.course && <Kv k="Course">{v.course}</Kv>}{v.accommodation && <Kv k="Student type">{v.accommodation === "hostel" ? "Hostel student" : "Day student"}</Kv>}
             <Kv k="Status">{STATUS[v.status]}</Kv>
             {!paid && <><Kv k="Phone">{v.details.phone}</Kv><Kv k="Email">{v.details.email}</Kv>{v.details.dob && <Kv k="Date of birth">{v.details.dob}</Kv>}<Kv k="Address">{v.details.address}</Kv>{v.details.education && <Kv k="Education">{v.details.education}</Kv>}{v.details.emergencyName && <Kv k="Emergency contact">{v.details.emergencyName}, {v.details.emergencyPhone}</Kv>}{v.details.additional && <Kv k="Additional">{v.details.additional}</Kv>}</>}</dl>
           {!paid && (v.status === "draft" || v.status === "awaiting_payment") && <p><Link className="linkbtn" href={`/apply/${ref}/${token}`}>Edit details</Link></p>}

@@ -1,12 +1,13 @@
 import type { VariantId } from "../../config/vocational";
 import type { PaymentAttempt } from "../types";
 
+export type Accommodation = "hostel" | "day";
 export type AppStatus = "draft" | "awaiting_payment" | "submitted" | "under_review" | "admitted" | "not_admitted" | "waitlisted" | "withdrawn";
 export type AppPayStatus = "unpaid" | "pending" | "paid" | "failed" | "expired" | "needs_review" | "refunded";
 export interface VocAttempt extends PaymentAttempt { amountKobo: number }
 export interface ApplicationDetails { fullName: string; phone: string; email: string; dob: string | null; address: string; education: string | null; emergencyName: string | null; emergencyPhone: string | null; additional: string | null }
 export interface Application {
-  ref: string; token: string; idempotencyKey: string; variantId: VariantId; course: string | null; details: ApplicationDetails;
+  ref: string; token: string; idempotencyKey: string; variantId: VariantId; course: string | null; courses?: string[]; accommodation?: Accommodation | null; details: ApplicationDetails;
   status: AppStatus; feeKobo: number; payment: { status: AppPayStatus; attempts: VocAttempt[]; paidAt: string | null; receiptNumber: string | null };
   notes: string[]; createdAt: string; updatedAt: string; submittedAt: string | null;
 }
@@ -15,7 +16,7 @@ export interface InvoiceLine { id: string; kind: LineKind; label: string; amount
 export interface InvoicePayment { id: string; amountKobo: number; method: "online" | "manual"; reference: string; chargeId: string | null; paidAt: string; receiptNumber: string; note: string | null }
 export interface Invoice {
   number: string; appRef: string; status: "draft" | "issued" | "void"; createdAt: string; issuedAt: string | null; dueDate: string | null; paymentTerms: string | null;
-  lines: InvoiceLine[]; payments: InvoicePayment[]; attempts: VocAttempt[]; notes: string[];
+  lines: InvoiceLine[]; payments: InvoicePayment[]; attempts: VocAttempt[]; notes: string[]; auto?: boolean;
 }
 export interface Receipt {
   number: string; kind: "application_fee" | "invoice_payment"; appRef: string; invoiceNumber: string | null; amountKobo: number;
@@ -23,9 +24,11 @@ export interface Receipt {
 }
 export interface VariantContent {
   variantId: VariantId; open: boolean; published: boolean; summary: string | null;
-  courses: { id: string; name: string; description: string | null }[]; curriculum: { title: string; topics: string[] }[];
+  /** role "choice" courses are picked by the applicant (how many: `choose`); a choice course may carry its own price. Others are simply part of the package. */
+  courses: { id: string; name: string; description: string | null; role?: "included" | "choice"; priceKobo?: number | null }[]; choose?: number; curriculum: { title: string; topics: string[] }[];
   requirements: string[]; benefits: string[];
-  fees: { id: string; label: string; kind: "tuition" | "accommodation" | "other"; amountKobo: number | null; note: string | null }[];
+  /** appliesTo: which accommodation choice the line is charged to (default all). phase: first-year/intake charges (invoiced when the application fee is verified), yearly charges (later years) or graduation (shown, invoiced later). */
+  fees: { id: string; label: string; kind: "tuition" | "accommodation" | "other"; amountKobo: number | null; note: string | null; appliesTo?: "all" | Accommodation; phase?: "intake" | "yearly" | "graduation" }[];
   accommodation: { available: boolean | null; note: string | null }; intakeNote: string | null;
 }
 export const emptyContent = (variantId: VariantId): VariantContent => ({ variantId, open: false, published: false, summary: null, courses: [], curriculum: [], requirements: [], benefits: [], fees: [], accommodation: { available: null, note: null }, intakeNote: null });

@@ -1,23 +1,23 @@
 import { randomBytes } from "node:crypto";
 import type { Repo } from "./repo";
 
-export interface Mail { to: string; subject: string; text: string; kind: string }
-export interface Mailer { send(m: { to: string; subject: string; text: string }): Promise<void> }
+export interface Mail { to: string; subject: string; text: string; kind: string; html?: string }
+export interface Mailer { send(m: { to: string; subject: string; text: string; html?: string }): Promise<void> }
 export interface OutboxItem extends Mail { id: string; status: "queued" | "sent" | "failed" | "not_configured"; attempts: number; error: string | null; createdAt: string; sentAt: string | null }
 
 /** Resend (https://resend.com). Needs EMAIL_API_KEY and EMAIL_FROM on a verified sending domain. */
 export class ResendMailer implements Mailer {
   constructor(private o: { apiKey: string; from: string; fetchImpl?: typeof fetch }) {}
-  async send(m: { to: string; subject: string; text: string }) {
-    const r = await (this.o.fetchImpl ?? fetch)("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${this.o.apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from: this.o.from, to: [m.to], subject: m.subject, text: m.text }) });
+  async send(m: { to: string; subject: string; text: string; html?: string }) {
+    const r = await (this.o.fetchImpl ?? fetch)("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${this.o.apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from: this.o.from, to: [m.to], subject: m.subject, text: m.text, ...(m.html ? { html: m.html } : {}) }) });
     if (!r.ok) throw new Error(`Resend responded ${r.status}`);
   }
 }
 /** Postmark (https://postmarkapp.com). Needs EMAIL_API_KEY (server token) and EMAIL_FROM (a verified sender). */
 export class PostmarkMailer implements Mailer {
   constructor(private o: { apiKey: string; from: string; fetchImpl?: typeof fetch }) {}
-  async send(m: { to: string; subject: string; text: string }) {
-    const r = await (this.o.fetchImpl ?? fetch)("https://api.postmarkapp.com/email", { method: "POST", headers: { "X-Postmark-Server-Token": this.o.apiKey, "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ From: this.o.from, To: m.to, Subject: m.subject, TextBody: m.text, MessageStream: "outbound" }) });
+  async send(m: { to: string; subject: string; text: string; html?: string }) {
+    const r = await (this.o.fetchImpl ?? fetch)("https://api.postmarkapp.com/email", { method: "POST", headers: { "X-Postmark-Server-Token": this.o.apiKey, "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ From: this.o.from, To: m.to, Subject: m.subject, TextBody: m.text, ...(m.html ? { HtmlBody: m.html } : {}), MessageStream: "outbound" }) });
     if (!r.ok) throw new Error(`Postmark responded ${r.status}`);
   }
 }
@@ -37,11 +37,11 @@ export async function flushOutbox(repo: Repo, mailer: Mailer | null, max = 20): 
   const items = (await repo.docList<OutboxItem>("outbox")).filter((x) => x.status !== "sent" && x.attempts < 8).sort((a, b) => a.createdAt.localeCompare(b.createdAt)).slice(0, max); const r = { sent: 0, failed: 0, notConfigured: 0 };
   for (const it of items) {
     if (!mailer) { if (it.status !== "not_configured") { it.status = "not_configured"; await repo.docPut("outbox", it.id, it); } r.notConfigured++; continue; }
-    it.attempts++; try { await mailer.send({ to: it.to, subject: it.subject, text: it.text }); it.status = "sent"; it.sentAt = new Date().toISOString(); it.error = null; r.sent++; if (it.kind === "reset" || it.kind === "recovery") it.text = "[removed after sending]"; }
+    it.attempts++; try { await mailer.send({ to: it.to, subject: it.subject, text: it.text, ...(it.html ? { html: it.html } : {}) }); it.status = "sent"; it.sentAt = new Date().toISOString(); it.error = null; r.sent++; if (it.kind === "reset" || it.kind === "recovery") { it.text = "[removed after sending]"; delete it.html; } }
     catch (e) { it.status = "failed"; it.error = (e as Error).message.slice(0, 200); r.failed++; }
     await repo.docPut("outbox", it.id, it);
   }
   return r;
 }
 /** Admin view: never includes the message body (it may contain private links or reset tokens). */
-export async function listOutbox(repo: Repo) { return (await repo.docList<OutboxItem>("outbox")).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 100).map(({ text, ...x }) => x); }
+export async function listOutbox(repo: Repo) { return (await repo.docList<OutboxItem>("outbox")).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 100).map(({ text, html, ...x }) => x); }

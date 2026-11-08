@@ -96,6 +96,7 @@ export function moduleForPath(segments: string[]): Module | "any" | "upload" {
   switch (a) {
     case "menu": case "categories": case "orders": case "food": return "food";
     case "voc": return "vocational";
+    case "vip": return "food";
     case "catering": return "catering";
     case "inbox": return "inbox";
     case "media": return "upload";

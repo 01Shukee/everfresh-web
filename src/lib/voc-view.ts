@@ -1,7 +1,10 @@
-import { formatNaira } from "./money";
+import { vocConfig } from "../config/vocational";
 import type { VariantContent } from "../server/voc/model";
-/** Display text for tuition: only confirmed amounts are shown. */
+import { startingPrice } from "../server/voc/pricing";
+import { formatNaira } from "./money";
+/** Display text for the price on a programme card: only confirmed amounts are shown. */
 export function tuitionText(c: VariantContent): string | null {
-  const t = c.fees.filter((f) => f.kind === "tuition" && f.amountKobo !== null);
-  return t.length ? (t.length === 1 ? formatNaira(t[0].amountKobo!) : `From ${formatNaira(Math.min(...t.map((x) => x.amountKobo!)))}`) : null;
+  const p = startingPrice(c); return p ? `${p.from ? "From " : ""}${formatNaira(p.kobo)}` : null;
 }
+/** How the application-form fee relates to the other charges, in words (follows vocConfig.applicationFee). */
+export const feeNote = () => (vocConfig.applicationFee.creditedToTuition ? "non-refundable, and part of your total fees: it is deducted from your programme invoice" : "non-refundable and separate from tuition and other charges");

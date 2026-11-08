@@ -4,7 +4,9 @@ import { newRef } from "../../lib/ids";
 import { GatewayError, type PaymentGateway } from "../gateway";
 import { UniqueViolation, type Repo } from "../repo";
 import { normalisePhone } from "../validation";
-import { mailApplicationLink } from "../notify";
+import { getInstitute } from "./institute";
+import { mailRegistration } from "./emails";
+import { checkChoices } from "./pricing";
 import { emptyContent, invoiceState, invoiceTotals, type Application, type ApplicationDetails, type Invoice, type VariantContent, type VocAttempt } from "./model";
 
 export interface VocDeps { repo: Repo; gateway: PaymentGateway; siteUrl: string; now?: () => Date; renderPdf?: (html: string) => Promise<Uint8Array> }
@@ -46,13 +48,13 @@ export async function invoicesFor(repo: Repo, ref: string): Promise<Invoice[]> {
 const inflight = new Map<string, Promise<unknown>>();
 function once<T>(key: string, run: () => Promise<T>): Promise<T> { const e = inflight.get(key); if (e) return e as Promise<T>; const p = run().finally(() => inflight.delete(key)); inflight.set(key, p); return p; }
 
-async function selection(deps: VocDeps, raw: Record<string, unknown>): Promise<{ variantId: Application["variantId"]; course: string | null } | VocFail> {
+async function selection(deps: VocDeps, raw: Record<string, unknown>): Promise<{ variantId: Application["variantId"]; course: string | null; courses: string[]; accommodation: Application["accommodation"] } | VocFail> {
   const v = variantById(raw.variantId); if (!v) return fail(422, "VARIANT_INVALID", "Choose a programme and duration.", { variantId: "Choose a programme and duration." });
   const c = await getContent(deps.repo, v.id);
   if (!c.open) return fail(409, "APPLICATIONS_CLOSED", "Applications for this programme are not open yet.");
-  const course = clean(raw.course, 80) || null;
-  if (course && !c.courses.some((x) => x.name === course)) return fail(422, "COURSE_INVALID", "That course is not offered on this programme.", { course: "Choose a course from the list." });
-  return { variantId: v.id, course };
+  const ch = checkChoices(c, { accommodation: raw.accommodation, courses: raw.courses, course: raw.course });
+  if (!ch.ok) return fail(422, ch.errors.courses ? "COURSE_INVALID" : "ACCOMMODATION_INVALID", Object.values(ch.errors)[0], { ...ch.errors, ...(ch.errors.courses ? { course: ch.errors.courses } : {}) });
+  return { variantId: v.id, course: ch.course, courses: ch.courses, accommodation: ch.accommodation };
 }
 
 export type CreateOut = { ok: true; ref: string; token: string; replay: boolean } | VocFail;
@@ -79,13 +81,15 @@ async function doCreate(deps: VocDeps, raw: unknown, key: string): Promise<Creat
   }
   try { await repo.docCreate("idx", `appkey:${key}`, { ref }); }
   catch (e) { if (!(e instanceof UniqueViolation)) throw e; await repo.docDelete("idx", activeKey); const p = await repo.docGet<{ ref: string }>("idx", `appkey:${key}`); const a = p ? await getApp(repo, p.ref) : null; if (a) return { ok: true, ref: a.ref, token: a.token, replay: true }; throw e; }
-  const app: Application = { ref, token: randomBytes(18).toString("base64url"), idempotencyKey: key, variantId: sel.variantId, course: sel.course, details: d.value, status: "draft", feeKobo: vocConfig.applicationFee.kobo,
+  const app: Application = { ref, token: randomBytes(18).toString("base64url"), idempotencyKey: key, variantId: sel.variantId, course: sel.course, courses: sel.courses, accommodation: sel.accommodation, details: d.value, status: "draft", feeKobo: vocConfig.applicationFee.kobo,
     payment: { status: "unpaid", attempts: [], paidAt: null, receiptNumber: null }, notes: [], createdAt: now.toISOString(), updatedAt: now.toISOString(), submittedAt: null };
   for (let i = 0; ; i++) {
     try { await repo.docCreate("app", app.ref, app); break; }
     catch (e) { if (!(e instanceof UniqueViolation) || i >= 5) throw e; app.ref = newRef("VA", now); await repo.docPut("idx", activeKey, { ref: app.ref }); await repo.docPut("idx", `appkey:${key}`, { ref: app.ref }); }
   }
-  await mailApplicationLink(repo, app); return { ok: true, ref: app.ref, token: app.token, replay: false };
+  // The registration is saved above. The email is sent afterwards and can never undo or duplicate it: a failure only leaves it queued for a retry.
+  try { await mailRegistration(repo, app, await getContent(repo, app.variantId), await getInstitute(repo)); } catch { /* never affects the saved registration */ }
+  return { ok: true, ref: app.ref, token: app.token, replay: false };
 }
 
 export function updateApplication(deps: VocDeps, ref: string, token: string, raw: unknown): Promise<{ ok: true } | VocFail> { return deps.repo.withLock(`app:${ref}`, () => updateApplicationImpl(deps, ref, token, raw)); }
@@ -93,7 +97,7 @@ async function updateApplicationImpl(deps: VocDeps, ref: string, token: string, 
   const app = await appForToken(deps.repo, ref, token); if (!app) return fail(404, "NOT_FOUND", "Application not found.");
   if (app.payment.status === "paid" || !["draft", "awaiting_payment"].includes(app.status)) return fail(409, "LOCKED", "This application has been submitted and can no longer be edited online. Please contact us for corrections.");
   if (!isRec(raw)) return fail(400, "BAD_REQUEST", "Invalid request.");
-  const sel = await selection(deps, { variantId: raw.variantId ?? app.variantId, course: raw.course ?? app.course }); if ("ok" in sel) return sel;
+  const sel = await selection(deps, { variantId: raw.variantId ?? app.variantId, course: raw.course ?? app.course, courses: raw.courses ?? app.courses, accommodation: raw.accommodation ?? app.accommodation }); if ("ok" in sel) return sel;
   const d = validateDetails(raw.details, nowOf(deps)); if (!d.ok) return fail(422, "VALIDATION_FAILED", "Please check the highlighted fields.", d.fieldErrors);
   const oldKey = `active:${app.details.email}:${app.variantId}`, newKey = `active:${d.value.email}:${sel.variantId}`;
   if (oldKey !== newKey) {
@@ -101,7 +105,7 @@ async function updateApplicationImpl(deps: VocDeps, ref: string, token: string, 
     catch (e) { if (!(e instanceof UniqueViolation)) throw e; const ex = await deps.repo.docGet<{ ref: string }>("idx", newKey); const o = ex ? await getApp(deps.repo, ex.ref) : null; if (o && o.status !== "withdrawn") return fail(409, "DUPLICATE_APPLICATION", "An application for this programme already exists for that email address."); await deps.repo.docPut("idx", newKey, { ref }); }
     await deps.repo.docDelete("idx", oldKey);
   }
-  app.variantId = sel.variantId; app.course = sel.course; app.details = d.value; app.updatedAt = nowOf(deps).toISOString();
+  app.variantId = sel.variantId; app.course = sel.course; app.courses = sel.courses; app.accommodation = sel.accommodation; app.details = d.value; app.updatedAt = nowOf(deps).toISOString();
   await deps.repo.docPut("app", app.ref, app); return { ok: true };
 }
 
@@ -159,7 +163,7 @@ export async function ownerView(deps: VocDeps, ref: string, token: string) {
   const receipts = await deps.repo.docList<{ number: string; appRef: string; kind: string; amountKobo: number; paidAt: string; invoiceNumber: string | null }>("receipt");
   const last = app.payment.attempts[app.payment.attempts.length - 1];
   return {
-    ref: app.ref, status: app.status, variantId: app.variantId, programme: v.label, duration: v.durationLabel, course: app.course, details: app.details, feeKobo: app.feeKobo,
+    ref: app.ref, status: app.status, variantId: app.variantId, programme: v.label, duration: v.durationLabel, course: app.course, courses: app.courses ?? (app.course ? [app.course] : []), accommodation: app.accommodation ?? null, details: app.details, feeKobo: app.feeKobo,
     payment: { status: app.payment.status, paidAt: app.payment.paidAt, receiptNumber: app.payment.receiptNumber, transactionRef: app.payment.attempts.find((a) => a.status === "succeeded")?.reference ?? null, canRetry: ["failed", "expired"].includes(app.payment.status) || (app.payment.status === "unpaid") },
     lastAttemptError: last?.status === "failed" ? last.error : null, createdAt: app.createdAt, submittedAt: app.submittedAt,
     invoices: invs.map((i) => ({ number: i.number, state: invoiceState(i), issuedAt: i.issuedAt, dueDate: i.dueDate, lines: i.lines, paymentTerms: i.paymentTerms ?? vocConfig.paymentTerms, ...invoiceTotals(i), payments: i.payments.map((p) => ({ amountKobo: p.amountKobo, paidAt: p.paidAt, receiptNumber: p.receiptNumber, method: p.method })), awaitingPayment: i.attempts.some((a) => a.status === "open") })),

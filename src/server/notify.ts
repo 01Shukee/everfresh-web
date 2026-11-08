@@ -5,10 +5,13 @@ import { getSettings } from "./site/settings";
 
 const site = () => (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const SIGN = "\n\nEverfresh Creations Ltd";
-/** Queue + attempt delivery in the background. Never throws: email problems must not break orders, payments or applications. */
-function send(repo: Repo, m: { to: string | null | undefined; subject: string; text: string; kind: string }) {
-  if (!m.to) return Promise.resolve();
-  return queueMail(repo, { to: m.to, subject: m.subject, text: m.text, kind: m.kind }).then(() => { setTimeout(() => { void flushOutbox(repo, mailerFromEnv()).catch(() => {}); }, 0); }).catch(() => {});
+/** Saves the email to the outbox, then tries to deliver it, waiting up to 4 seconds. Waiting matters on serverless hosts (Vercel), which can freeze a function right after it responds and never run a background timer. Never throws: email problems must not break orders, payments or applications; anything undelivered stays in the outbox and is retried. */
+async function send(repo: Repo, m: { to: string | null | undefined; subject: string; text: string; kind: string; html?: string }) {
+  if (!m.to) return;
+  try {
+    await queueMail(repo, { to: m.to, subject: m.subject, text: m.text, kind: m.kind, ...(m.html ? { html: m.html } : {}) });
+    await Promise.race([flushOutbox(repo, mailerFromEnv()).catch(() => {}), new Promise((r) => setTimeout(r, 4000))]);
+  } catch { /* the outbox keeps it for a retry */ }
 }
 export async function notifyStaff(repo: Repo, subject: string, text: string) { try { const s = await getSettings(repo); await send(repo, { to: s.business.notifyEmail, subject: `[Everfresh] ${subject}`, text, kind: "staff" }); } catch { /* ignore */ } }
 

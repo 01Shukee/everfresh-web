@@ -3,7 +3,10 @@ import { newRef } from "../../lib/ids";
 import { UniqueViolation, type Repo } from "../repo";
 import { invoiceTotals, type Application, type Invoice, type Receipt, type VocAttempt } from "./model";
 import { randomUUID } from "node:crypto";
-import { mailApplicationPaid } from "../notify";
+import { getContent } from "./applications";
+import { issueProgrammeInvoice } from "./autoinvoice";
+import { mailFeeReceived } from "./emails";
+import { getInstitute } from "./institute";
 
 export const isVocRef = (r: unknown): r is string => typeof r === "string" && (r.startsWith("VA-") || r.startsWith("VI-"));
 import { baseRef } from "../../lib/refs";
@@ -68,7 +71,14 @@ export async function handleVocEvent(ev: { type: string; data: Record<string, an
       case "refund.paid": app.payment.status = "refunded"; note(`Refund ${d.refund_id ?? ""} paid. (Application-form fee is non-refundable; this was an exceptional refund.)`); break;
       default: return ok("ignored");
     }
-    app.updatedAt = ts; await repo.docPut("app", app.ref, app); if (firstPaid) await mailApplicationPaid(repo, app); return ok();
+    app.updatedAt = ts; await repo.docPut("app", app.ref, app);
+    if (firstPaid) {
+      // The payment is already saved. Neither step below can undo it: a failure is logged on the application and can be retried by staff.
+      let inv: Invoice | null = null;
+      try { inv = await issueProgrammeInvoice(repo, now, app); } catch (e) { app.notes.push(`${ts} The programme invoice could not be raised automatically (${(e as Error).message}). Raise it by hand in the admin.`); await repo.docPut("app", app.ref, app); }
+      try { await mailFeeReceived(repo, app, await getContent(repo, app.variantId), await getInstitute(repo), inv); } catch { /* retried from the outbox */ }
+    }
+    return ok();
   }
 
   const num = invNumberOf(ref); const inv = await repo.docGet<Invoice>("invoice", num); if (!inv) return ok("unknown reference");

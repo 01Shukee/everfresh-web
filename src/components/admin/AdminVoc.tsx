@@ -1,5 +1,5 @@
 "use client";
-import { CaptionsUploadButton, UploadButton, VideoUploadButton } from "./shared";
+import { UploadButton } from "./shared";
 import { useCallback, useEffect, useState } from "react";
 import { VARIANTS } from "@/config/vocational";
 import { decimalToKobo, formatNaira } from "@/lib/money";
@@ -11,12 +11,12 @@ const api = async (url: string, method = "GET", body?: unknown) => {
   return { ok: r.ok, json: await r.json().catch(() => ({})) };
 };
 const label = (s: string) => s.replace(/_/g, " ");
-type Sub = "applications" | "programmes" | "media";
+type Sub = "applications" | "programmes" | "institute" | "media";
 
 export function AdminVoc() {
   const [sub, setSub] = useState<Sub>("applications");
-  return (<div><nav className="admin-tabs sub" aria-label="Vocational sections">{(["applications", "programmes", "media"] as Sub[]).map((s) => <button key={s} className={sub === s ? "on" : ""} aria-pressed={sub === s} onClick={() => setSub(s)}>{s === "applications" ? "Applications and invoices" : s === "programmes" ? "Programmes and fees" : "Photos, videos, testimonials"}</button>)}</nav>
-    {sub === "applications" && <Applications />}{sub === "programmes" && <Programmes />}{sub === "media" && <Media />}</div>);
+  return (<div><nav className="admin-tabs sub" aria-label="Vocational sections">{(["applications", "programmes", "institute", "media"] as Sub[]).map((s) => <button key={s} className={sub === s ? "on" : ""} aria-pressed={sub === s} onClick={() => setSub(s)}>{s === "applications" ? "Applications and invoices" : s === "institute" ? "Institute details" : s === "programmes" ? "Programmes and fees" : "Photos, videos, testimonials"}</button>)}</nav>
+    {sub === "applications" && <Applications />}{sub === "programmes" && <Programmes />}{sub === "institute" && <Institute />}{sub === "media" && <Media />}</div>);
 }
 
 function Applications() {
@@ -27,47 +27,29 @@ function Applications() {
   const act = async (fn: () => Promise<{ ok: boolean; json: any }>, ok: string) => { const r = await fn(); setMsg(r.ok ? ok : r.json.error ?? "Failed."); if (open) loadDet(open); load(); return r; };
   const [lines, setLines] = useState("tuition | Tuition | \n"); const [due, setDue] = useState(""); const [terms, setTerms] = useState(""); const [pay, setPay] = useState({ amount: "", ref: "", note: "" });
   const makeInvoice = async () => {
-    type InvoiceLineKind =
-  | "tuition"
-  | "accommodation"
-  | "other"
-  | "discount";
+    const out: { kind: string; label: string; amountKobo: number }[] = [];
 
-const validKinds: InvoiceLineKind[] = [
-  "tuition",
-  "accommodation",
-  "other",
-  "discount",
-];
+    for (const l of parseLines(lines)) {
+      const [kind, lab, amt] = l.split("|").map((x) => x.trim());
+      const k = decimalToKobo(amt);
 
-const out: {
-  kind: InvoiceLineKind;
-  label: string;
-  amountKobo: number;
-}[] = [];
+      if (k === null) {
+        setMsg(`Line "${l}": use "kind | label | amount in naira".`);
+        return;
+      }
 
-for (const l of parseLines(lines)) {
-  const [rawKind, lab, amt] = l.split("|").map((x) => x.trim());
+      out.push({ kind, label: lab, amountKobo: k });
+    }
 
-  if (!validKinds.includes(rawKind as InvoiceLineKind)) {
-    setMsg(`Line "${l}": kind must be tuition, accommodation, other or discount.`);
-    return;
-  }
-
-  const k = decimalToKobo(amt);
-
-  if (k === null) {
-    setMsg(`Line "${l}": use "kind | label | amount in naira".`);
-    return;
-  }
-
-  out.push({
-    kind: rawKind as InvoiceLineKind,
-    label: lab,
-    amountKobo: k,
-  });
-}
-    await act(() => api(`/api/admin/voc/applications/${open}/invoices`, "POST", { lines: out, dueDate: due || undefined, paymentTerms: terms || undefined }), "Draft invoice created.");
+    await act(
+      () =>
+        api(`/api/admin/voc/applications/${open}/invoices`, "POST", {
+          lines: out,
+          dueDate: due || undefined,
+          paymentTerms: terms || undefined,
+        }),
+      "Draft invoice created."
+    );
   };
   return (
     <section aria-labelledby="av"><div className="bar"><h2 id="av" className="serif">Applications</h2><label className="inl"><span className="sr">Filter</span><select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">All statuses</option>{["draft", "awaiting_payment", "submitted", "under_review", "admitted", "not_admitted", "waitlisted", "withdrawn"].map((s) => <option key={s} value={s}>{label(s)}</option>)}</select></label><button className="pill ghost sm" onClick={load}>Refresh</button></div>
@@ -100,11 +82,11 @@ for (const l of parseLines(lines)) {
 
 function Programmes() {
   const [vid, setVid] = useState<string>(VARIANTS[0].id); const [f, setF] = useState<any>(null); const [msg, setMsg] = useState("");
-  useEffect(() => { api(`/api/admin/voc/content/${vid}`).then((r) => { const c = r.json; setF({ open: c.open, published: c.published, summary: c.summary ?? "", intakeNote: c.intakeNote ?? "", courses: serializeCourses(c.courses), curriculum: serializeCurriculum(c.curriculum), requirements: c.requirements.join("\n"), benefits: c.benefits.join("\n"), fees: serializeFees(c.fees), acc: c.accommodation.available === null ? "" : String(c.accommodation.available), accNote: c.accommodation.note ?? "" }); }); setMsg(""); }, [vid]);
+  useEffect(() => { api(`/api/admin/voc/content/${vid}`).then((r) => { const c = r.json; setF({ open: c.open, published: c.published, summary: c.summary ?? "", intakeNote: c.intakeNote ?? "", courses: serializeCourses(c.courses), choose: String(c.choose ?? 0), curriculum: serializeCurriculum(c.curriculum), requirements: c.requirements.join("\n"), benefits: c.benefits.join("\n"), fees: serializeFees(c.fees), acc: c.accommodation.available === null ? "" : String(c.accommodation.available), accNote: c.accommodation.note ?? "" }); }); setMsg(""); }, [vid]);
   if (!f) return <p role="status">Loading…</p>;
   const save = async (e: React.FormEvent) => {
     e.preventDefault(); const co = parseCourses(f.courses), cu = parseCurriculum(f.curriculum), fe = parseFees(f.fees); if (!co.ok) return setMsg(co.error); if (!cu.ok) return setMsg(cu.error); if (!fe.ok) return setMsg(fe.error);
-    const r = await api(`/api/admin/voc/content/${vid}`, "PUT", { open: f.open, published: f.published, summary: f.summary, intakeNote: f.intakeNote, courses: co.value, curriculum: cu.value, requirements: parseLines(f.requirements), benefits: parseLines(f.benefits), fees: fe.value.map((x) => ({ ...x, amountKobo: x.amountKobo })), accommodation: { available: f.acc === "" ? null : f.acc === "true", note: f.accNote } });
+    const r = await api(`/api/admin/voc/content/${vid}`, "PUT", { open: f.open, published: f.published, summary: f.summary, intakeNote: f.intakeNote, courses: co.value, choose: Math.max(0, Math.floor(Number(f.choose) || 0)), curriculum: cu.value, requirements: parseLines(f.requirements), benefits: parseLines(f.benefits), fees: fe.value.map((x) => ({ ...x, amountKobo: x.amountKobo })), accommodation: { available: f.acc === "" ? null : f.acc === "true", note: f.accNote } });
     setMsg(r.ok ? "Saved." : r.json.error ?? "Could not save.");
   };
   const T = (k: string, l: string, rows = 3, hint?: string) => <div className="field"><label htmlFor={k}>{l}</label><textarea id={k} rows={rows} value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} />{hint && <p className="hint">{hint}</p>}</div>;
@@ -115,9 +97,28 @@ function Programmes() {
       <form className="adminform" onSubmit={save}>
         <div className="checks"><label className="check"><input type="checkbox" checked={f.published} onChange={(e) => setF({ ...f, published: e.target.checked })} /> Show details on the website</label><label className="check"><input type="checkbox" checked={f.open} onChange={(e) => setF({ ...f, open: e.target.checked })} /> Accepting applications</label></div>
         {T("summary", "Overview", 3)}{T("intakeNote", "Intake / start date note", 1)}
-        {T("courses", "Courses (one per line: Name | description)", 4)}{T("curriculum", "Curriculum (# Module title, then - topic lines)", 6)}{T("requirements", "Admission requirements (one per line)", 4)}{T("benefits", "Programme benefits (one per line; confirmed claims only)", 3)}
-        {T("fees", "Fees (one per line: Label | tuition/accommodation/other | amount in ₦ | note). Leave the amount empty if not confirmed.", 4)}
-        <div className="grid-f2"><div className="field"><label htmlFor="acc">Accommodation</label><select id="acc" value={f.acc} onChange={(e) => setF({ ...f, acc: e.target.value })}><option value="">Not stated (hidden)</option><option value="true">Available</option><option value="false">Not offered</option></select></div><div className="field"><label htmlFor="accNote">Accommodation note</label><input id="accNote" value={f.accNote} onChange={(e) => setF({ ...f, accNote: e.target.value })} /></div></div>
+        {T("courses", "Courses (one per line: Name | description)", 5, "Optional markers after the name: [choice] = the applicant picks this course, [price=150000] = its price in naira. Example: Pastries [choice] [price=150000] | Cakes and pies")}<div className="field"><label htmlFor="choose">How many [choice] courses must the applicant pick?</label><input id="choose" type="number" min={0} max={10} value={f.choose} onChange={(e) => setF({ ...f, choose: e.target.value })} /><p className="hint">0 = no choice is asked. 1 = pick one (its price is added to the invoice). 2 = pick two, and so on.</p></div>{T("curriculum", "Curriculum (# Module title, then - topic lines)", 6)}{T("requirements", "Admission requirements (one per line)", 4)}{T("benefits", "Programme benefits (one per line; confirmed claims only)", 3)}
+        {T("fees", "Fees (one per line: Label | tuition/accommodation/other | amount in ₦ | note). Leave the amount empty if not confirmed.", 8, "Optional markers on the label: [hostel] or [day] = charged to that student type only; [yearly] = charged in later years; [graduation] = due at graduation (shown, not invoiced at registration). No marker = a first-year charge for everyone. The application-form fee is credited off the invoice automatically.")}
+        <div className="grid-f2"><div className="field"><label htmlFor="acc">Accommodation</label><select id="acc" value={f.acc} onChange={(e) => setF({ ...f, acc: e.target.value })}><option value="">Not stated (hidden)</option><option value="true">Available (students choose hostel or day when applying)</option><option value="false">Not offered</option></select></div><div className="field"><label htmlFor="accNote">Accommodation note</label><input id="accNote" value={f.accNote} onChange={(e) => setF({ ...f, accNote: e.target.value })} /></div></div>
+        <button className="pill sm">Save</button></form>
+    </section>
+  );
+}
+
+function Institute() {
+  const [f, setF] = useState<any>(null); const [msg, setMsg] = useState("");
+  useEffect(() => { api("/api/admin/voc/institute").then((r) => setF({ name: r.json.name ?? "", address: r.json.address ?? "", phones: (r.json.phones ?? []).join("\n"), note: r.json.note ?? "" })); }, []);
+  if (!f) return <p role="status">Loading…</p>;
+  const save = async (e: React.FormEvent) => { e.preventDefault(); const r = await api("/api/admin/voc/institute", "PUT", { name: f.name, address: f.address, phones: parseLines(f.phones), note: f.note }); setMsg(r.ok ? "Saved." : r.json.error ?? "Could not save."); };
+  const I = (k: string, l: string, hint?: string) => <div className="field"><label htmlFor={`i-${k}`}>{l}</label><input id={`i-${k}`} value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} />{hint && <p className="hint">{hint}</p>}</div>;
+  return (
+    <section aria-labelledby="ih"><h2 id="ih" className="serif">Institute details</h2>
+      <p className="hint">Shown at the bottom of the emails and PDFs sent to students. They are not shown on public pages.</p>
+      {msg && <p className="alert" role="status">{msg}</p>}
+      <form className="adminform" onSubmit={save}>
+        {I("name", "Institute name")}{I("address", "Address", "For example: No 1 Regent Street, Nnewi")}
+        <div className="field"><label htmlFor="i-phones">Admissions phone numbers (one per line)</label><textarea id="i-phones" rows={4} value={f.phones} onChange={(e) => setF({ ...f, phones: e.target.value })} /></div>
+        {I("note", "Extra line (optional)", "For example: For confirmation: Engr. Ibezim Ojukwu 08133300777")}
         <button className="pill sm">Save</button></form>
     </section>
   );
@@ -135,7 +136,7 @@ function Media() {
       {msg && <p className="alert" role="status">{msg}</p>}
       <form className="adminform" onSubmit={save}><div className="grid-f">
         {kind === "portfolio" && <><div className="field"><label htmlFor="m-kind">Type</label><select id="m-kind" value={f.kind ?? ""} onChange={(e) => setF({ ...f, kind: e.target.value })}><option value="">Choose…</option><option value="project">Completed project</option><option value="student">Student work</option><option value="instructor">Instructor demonstration</option><option value="facility">Training facility</option></select></div>{I("title", "Title")}{I("imageUrl", "Photo path or URL")}<div className="field"><UploadButton onUploaded={(u) => setF({ ...f, imageUrl: u })} /></div>{I("imageAlt", "Alt text")}{I("caption", "Caption")}</>}
-        {kind === "video" && <>{I("title", "Title")}{I("src", "Video path or URL")}<div className="field"><VideoUploadButton onUploaded={(u) => setF((p: any) => ({ ...p, src: u }))} /><p className="hint">Upload an MP4 (H.264) or WebM file, or paste a direct link to the video file ending in .mp4 or .webm. A Streamable, YouTube or Instagram page link will not play.</p></div>{I("captions", "Captions file (.vtt) path or URL")}<div className="field"><CaptionsUploadButton onUploaded={(u) => setF((p: any) => ({ ...p, captions: u }))} /></div>{I("poster", "Poster image (optional)")}<div className="field"><UploadButton label="Upload poster image" onUploaded={(u) => setF((p: any) => ({ ...p, poster: u }))} /></div>{I("description", "Description")}</>}
+        {kind === "video" && <>{I("title", "Title")}{I("src", "Video path or URL")}{I("captions", "Captions file (.vtt) path or URL")}{I("poster", "Poster image (optional)")}{I("description", "Description")}</>}
         {kind === "testimonial" && <>{I("name", "Name")}{I("relation", "Relationship (e.g. past student)")}{I("quote", "Quote")}<label className="check"><input type="checkbox" checked={!!f.permission} onChange={(e) => setF({ ...f, permission: e.target.checked })} /> Written permission received</label></>}
       </div><label className="check"><input type="checkbox" checked={!!f.published} onChange={(e) => setF({ ...f, published: e.target.checked })} /> Publish on the website</label><div className="acts"><button className="pill sm">Add</button></div></form>
       {items.length === 0 ? <div className="empty"><p className="serif empty-title">Nothing added yet.</p></div> : <table className="atable"><thead><tr><th>Item</th><th>Published</th><th><span className="sr">Actions</span></th></tr></thead><tbody>{items.map((i) => <tr key={i.id}><td><b>{i.title ?? i.name}</b>{i.kind ? ` · ${i.kind}` : ""}</td><td><label className="check"><input type="checkbox" checked={i.published} onChange={() => toggle(i)} aria-label={`${i.title ?? i.name} published`} /></label></td><td><button className="linkbtn" onClick={async () => { if (confirm("Delete?")) { await api(`/api/admin/voc/media/${kind}/${i.id}`, "DELETE"); load(); } }}>Delete</button></td></tr>)}</tbody></table>}

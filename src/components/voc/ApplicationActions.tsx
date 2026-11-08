@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { vocConfig } from "@/config/vocational";
 
 /** Pay the application-form fee (with non-refundable acknowledgement), retry, poll while pending, and pay an issued invoice. */
 export function ApplicationActions({ refNo, token, payStatus, mode, invoice }: { refNo: string; token: string; payStatus: string; mode: "pay" | "pending" | "paid" | "review"; invoice?: { number: string; outstanding: string; awaiting: boolean } | null }) {
@@ -15,7 +16,7 @@ export function ApplicationActions({ refNo, token, payStatus, mode, invoice }: {
   return (
     <div className="actions">
       {mode === "pay" && <>
-        <label className="check"><input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} /> I understand the application-form fee of &#8358;5,000 is non-refundable and separate from tuition.</label>
+        <label className="check"><input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} /> I understand the application-form fee of &#8358;5,000 is non-refundable{vocConfig.applicationFee.creditedToTuition ? ", and that it is deducted from my total fees" : " and separate from tuition"}.</label>
         <button className="pill" disabled={!ack || !!busy} onClick={() => go(`/api/applications/${refNo}/pay`, { acknowledged: ack }, "fee")}>{busy === "fee" ? "Redirecting to secure payment…" : payStatus === "failed" || payStatus === "expired" ? "Try payment again" : "Pay application-form fee"}</button></>}
       {invoice && !invoice.awaiting && <button className="pill" disabled={!!busy} onClick={() => go(`/api/applications/${refNo}/invoice/pay`, { invoice: invoice.number }, "inv")}>{busy === "inv" ? "Redirecting…" : `Pay outstanding ${invoice.outstanding}`}</button>}
       {err && <p className="err" role="alert">{err}</p>}

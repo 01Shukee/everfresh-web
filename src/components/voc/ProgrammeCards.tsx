@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { VARIANTS } from "@/config/vocational";
-import { tuitionText } from "@/lib/voc-view";
+import { feeNote, tuitionText } from "@/lib/voc-view";
 import type { VariantContent } from "@/server/voc/model";
 import { Tbc } from "./Bits";
 
@@ -18,12 +18,12 @@ export function ProgrammeCards({ content }: { content: Record<string, VariantCon
           <div className="acts"><Link href="/vocational-studies/regular" className="pill">View programme <span className="dot" aria-hidden="true">&rarr;</span></Link>{apply("regular-3y", reg.open)}</div>
         </article>
         <article className="pcard alt">
-          <span className="lab">Intensive Programme</span><h3 className="serif">1, 3 or 6 months</h3>
+          <span className="lab">Intensive Programme</span><h3 className="serif">1 month to 1 year</h3>
           <ul className="durs">{ints.map((v) => { const c = content[v.id]; return (<li key={v.id}><b className="serif">{v.durationLabel}</b><span className="tab">{tuitionText(c) ?? <span className="tag">Fees to be confirmed</span>}</span>{apply(v.id, c.open)}</li>); })}</ul>
           <div className="acts"><Link href="/vocational-studies/intensive" className="pill">Compare durations <span className="dot" aria-hidden="true">&rarr;</span></Link></div>
         </article>
       </div>
-      <p className="small dim0">Application-form fee: &#8358;5,000, non-refundable and separate from tuition.</p>
+      <p className="small dim0">Application-form fee: &#8358;5,000, {feeNote()}.</p>
     </div></section>
   );
 }

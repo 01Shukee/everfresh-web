@@ -4,14 +4,15 @@ import { formatNaira, decimalToKobo } from "@/lib/money";
 import { parseAddOns, parseVariants, serializeAddOns, serializeVariants } from "@/lib/menu-text";
 import type { Category, MenuItem, Order } from "@/server/types";
 import { AdminVoc } from "./AdminVoc";
+import { AdminVip } from "./AdminVip";
 import { AdminCatering } from "./AdminCatering";
 import { AdminSite, AdminInbox } from "./AdminSite";
 import { AdminTeam, AdminAccount } from "./AdminTeam";
 import { AdminFoodSettings } from "./AdminFoodSettings";
-import { ImagePreview, UploadButton } from "./shared";
+import { UploadButton } from "./shared";
 import { can, type Role } from "@/lib/permissions";
 
-type Tab = "orders" | "menu" | "categories" | "delivery" | "vocational" | "catering" | "website" | "messages" | "team" | "account";
+type Tab = "orders" | "menu" | "categories" | "delivery" | "vip" | "vocational" | "catering" | "website" | "messages" | "team" | "account";
 const api = async (url: string, method = "GET", body?: unknown) => {
   const r = await fetch(url, { method, headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined });
   if (r.status === 401) { location.reload(); throw new Error("Signed out"); }
@@ -22,7 +23,7 @@ const label = (s: string) => s.replace(/_/g, " ");
 
 export interface Me { name: string; email: string; role: Role; mustChangePassword: boolean; needs2fa?: boolean; twoFactor?: boolean }
 const TABS: { id: Tab; label: string; show: (r: Role) => boolean }[] = [
-  { id: "orders", label: "Orders", show: (r) => can(r, "food", false) }, { id: "menu", label: "Menu items", show: (r) => can(r, "food", false) }, { id: "categories", label: "Categories", show: (r) => can(r, "food", false) }, { id: "delivery", label: "Delivery and pickup", show: (r) => can(r, "food", false) },
+  { id: "orders", label: "Orders", show: (r) => can(r, "food", false) }, { id: "menu", label: "Menu items", show: (r) => can(r, "food", false) }, { id: "categories", label: "Categories", show: (r) => can(r, "food", false) }, { id: "delivery", label: "Delivery and pickup", show: (r) => can(r, "food", false) }, { id: "vip", label: "VIP menu", show: (r) => can(r, "food", false) },
   { id: "vocational", label: "Vocational studies", show: (r) => can(r, "vocational", false) }, { id: "catering", label: "Event catering", show: (r) => can(r, "catering", false) },
   { id: "website", label: "Website", show: (r) => can(r, "content", false) || can(r, "settings", false) }, { id: "messages", label: "Messages", show: (r) => can(r, "inbox", false) },
   { id: "team", label: "Team and security", show: (r) => can(r, "users", false) }, { id: "account", label: "My account", show: () => true },
@@ -33,9 +34,9 @@ export function AdminApp({ me }: { me: Me }) {
   return (
     <div className="admin">
       <div className="admin-head"><h1 className="serif">Admin</h1>
-        <nav className="admin-tabs" aria-label="Admin sections">{tabs.map((t) => <button key={t.id} className={tab === t.id ? "on" : ""} aria-pressed={tab === t.id} disabled={locked && t.id !== "account"} onClick={() => setTab(t.id)}>{t.label}</button>)}</nav>
+        <nav className="admin-tabs" aria-label="Admin sections">{tabs.map((t) => <button key={t.id} className={tab === t.id ? "on" : ""} aria-pressed={tab === t.id} disabled={locked && t.id !== "account"} onClick={(e) => { setTab(t.id); e.currentTarget.scrollIntoView?.({ inline: "center", block: "nearest", behavior: "smooth" }); }}>{t.label}</button>)}</nav>
         <span className="small who">{me.name} · {me.role.replace(/_/g, " ")}</span><button className="linkbtn" onClick={async () => { await api("/api/admin/logout", "POST"); location.reload(); }}>Sign out</button></div>
-      {tab === "orders" && <Orders />}{tab === "menu" && <MenuAdmin />}{tab === "categories" && <Categories />}{tab === "delivery" && <AdminFoodSettings />}{tab === "vocational" && <AdminVoc />}{tab === "catering" && <AdminCatering />}
+      {tab === "orders" && <Orders />}{tab === "menu" && <MenuAdmin />}{tab === "categories" && <Categories />}{tab === "delivery" && <AdminFoodSettings />}{tab === "vip" && <AdminVip />}{tab === "vocational" && <AdminVoc />}{tab === "catering" && <AdminCatering />}
       {tab === "website" && <AdminSite role={me.role} />}{tab === "messages" && <AdminInbox />}{tab === "team" && <AdminTeam />}{tab === "account" && <AdminAccount forced={me.mustChangePassword} needs2fa={!!me.needs2fa} enabled={!!me.twoFactor} />}
     </div>
   );
@@ -100,7 +101,7 @@ function MenuAdmin() {
         <div className="grid-f2"><div className="field"><label htmlFor="s">Portion sizes (one per line: Name | price)</label><textarea id="s" rows={4} placeholder="Small | 2000" value={f.sizes} onChange={(e) => setF({ ...f, sizes: e.target.value })} /></div>
           <div className="field"><label htmlFor="a"># Add-on group | min | max, then - Option | price</label><textarea id="a" rows={4} placeholder={"# Extras | 0 | 2\n- Option | 300"} value={f.addons} onChange={(e) => setF({ ...f, addons: e.target.value })} /></div></div>
         <div className="grid-f"><div className="field"><label htmlFor="t">Tags (comma separated)</label><input id="t" value={f.tags} onChange={(e) => setF({ ...f, tags: e.target.value })} /></div>
-          <div className="field"><label htmlFor="u">Photo path or URL</label><input id="u" value={f.imageUrl} onChange={(e) => setF({ ...f, imageUrl: e.target.value })} /><ImagePreview url={f.imageUrl} /><UploadButton onUploaded={(u) => setF({ ...f, imageUrl: u })} /></div>
+          <div className="field"><label htmlFor="u">Photo path or URL</label><input id="u" value={f.imageUrl} onChange={(e) => setF({ ...f, imageUrl: e.target.value })} /><UploadButton onUploaded={(u) => setF({ ...f, imageUrl: u })} /></div>
           <div className="field"><label htmlFor="al">Photo alt text</label><input id="al" value={f.imageAlt} onChange={(e) => setF({ ...f, imageAlt: e.target.value })} /></div></div>
         <div className="checks"><label className="check"><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} /> Enabled (visible to customers)</label><label className="check"><input type="checkbox" checked={f.available} onChange={(e) => setF({ ...f, available: e.target.checked })} /> Available (untick for sold out)</label></div>
         <div className="acts"><button className="pill sm">Save item</button><button type="button" className="pill ghost sm" onClick={() => { setForm(false); setEditing(null); }}>Cancel</button></div></form>}
