@@ -1,14 +1,21 @@
 /* VIP menu cards, search and favourites. Uses the Everfresh tokens from globals.css (green, cream, amber, sand).
    The order sheet and the floating order bar keep using the .vipsheet / .vipbar rules already in globals.css. */
 
+/* nothing inside the menu may be wider than the screen */
+.vm { max-width: 100%; min-width: 0; overflow-x: clip; }   /* clip (not hidden) so the sticky bar keeps working */
+.vm *, .vm *::before, .vm *::after { min-width: 0; }
+.vm img, .vm svg { max-width: 100%; }
+
 /* sticky search + filter pills, sitting under the site header */
-.vm .vm-bar { position: sticky; top: 72px; z-index: 5; display: grid; gap: 10px; margin: 8px calc(var(--gutter) * -1) 0; padding: 10px var(--gutter) 10px; background: var(--ef-cream); border-bottom: 1px solid var(--ef-line); }
+.vm .vm-bar { position: sticky; top: 72px; z-index: 5; display: grid; gap: 10px; margin: 8px 0 0; padding: 10px 0; background: var(--ef-cream); border-bottom: 1px solid var(--ef-line);
+  box-shadow: 0 0 0 100vmax var(--ef-cream); clip-path: inset(0 -100vmax); }   /* the cream background runs to the screen edges without making the page wider */
+.vm .vm-bar > * { min-width: 0; max-width: 100%; }
 .vm .vm-search { position: relative; }
 .vm .vm-search svg { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--ef-ink-soft); pointer-events: none; }
-.vm .vm-search input[type="search"] { min-height: 50px; padding: 10px 16px 10px 46px; border-radius: var(--pill); border: 1.5px solid var(--ef-line); background: #fff; appearance: none; -webkit-appearance: none; }
+.vm .vm-search input[type="search"] { width: 100%; min-height: 50px; padding: 10px 16px 10px 46px; border-radius: var(--pill); border: 1.5px solid var(--ef-line); background: #fff; appearance: none; -webkit-appearance: none; }
 .vm .vm-search input[type="search"]:focus-visible { border-color: var(--ef-green-deep); }
 
-.vm .vm-pills { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px 2px 6px; }
+.vm .vm-pills { display: flex; gap: 8px; max-width: 100%; overflow-x: auto; scrollbar-width: none; padding: 2px 2px 6px; }
 .vm .vm-pills::-webkit-scrollbar { display: none; }
 .vm .vm-pill { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 16px; border-radius: var(--pill); border: 2px solid var(--ef-green-deep); background: transparent; color: var(--ef-green-deep); font-weight: 800; white-space: nowrap; }
 .vm .vm-pill.on { background: var(--ef-green-deep); color: #fff; box-shadow: 0 4px 0 -1px var(--ef-amber); }
@@ -16,33 +23,35 @@
 .vm .vm-pill .n { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--ef-amber); color: var(--ef-ink); font-size: 12.5px; display: inline-flex; align-items: center; justify-content: center; }
 
 .vm .vm-favbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
-.vm .vm-empty { margin-top: 24px; }
+.vm .vm-empty { margin-top: 24px; max-width: 100%; }
 
 /* sections and grid */
 .vm .vm-sec { margin-top: 28px; }
-.vm .vm-sec h2 { margin: 0 0 14px; font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1.15; color: var(--ef-green-deep); }
+.vm .vm-sec h2 { margin: 0 0 14px; font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1.15; color: var(--ef-green-deep); overflow-wrap: anywhere; }
 .vm .vm-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 16px; }
+.vm .vm-grid > li { min-width: 0; }
 @media (max-width: 520px) { .vm .vm-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
 
 /* dish card */
-.vm .vm-card { position: relative; display: flex; flex-direction: column; min-width: 0; padding: 10px 10px 12px; background: #fff; border: 1px solid var(--ef-line); border-radius: 20px; }
+.vm .vm-card { position: relative; display: flex; flex-direction: column; min-width: 0; max-width: 100%; padding: 10px 10px 12px; background: #fff; border: 1px solid var(--ef-line); border-radius: 20px; overflow: hidden; }
 .vm .vm-card.soldout { opacity: .65; }
-.vm .vm-photo { display: grid; place-items: center; padding: 14px; background: var(--ef-sand); border-radius: 14px; }
-.vm .vm-img { width: 100%; max-width: 170px; height: auto; aspect-ratio: 1; object-fit: cover; }
-.vm .vm-body { display: flex; flex: 1; flex-direction: column; gap: 4px; padding: 10px 4px 0; }
+.vm .vm-photo { display: grid; place-items: center; width: 100%; padding: 12px; background: var(--ef-sand); border-radius: 14px; overflow: hidden; }
+.vm .vm-photo img, .vm .vm-photo .slot, .vm .vm-img { width: 100%; max-width: 170px; height: auto; aspect-ratio: 1; object-fit: cover; }   /* beats the 400px width/height attributes on the photo */
+.vm .vm-photo .slot { font-size: 10px; padding: 8px; }
+.vm .vm-body { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 4px 0; }
 .vm .vm-body h3 { margin: 0; font-size: 1.1rem; line-height: 1.2; color: var(--ef-green-deep); overflow-wrap: anywhere; }
-.vm .vm-body p { margin: 0; font-size: 13.5px; line-height: 1.4; color: var(--ef-ink-soft); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.vm .vm-body p { margin: 0; font-size: 13.5px; line-height: 1.4; color: var(--ef-ink-soft); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .vm .vm-foot { margin-top: auto; padding-top: 8px; min-height: 52px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 8px; }
 .vm .vm-foot .price { font-size: 1.1rem; }
 
 /* heart */
-.vm .vm-heart { position: absolute; top: 16px; right: 16px; z-index: 2; width: 44px; height: 44px; border: 0; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .92); color: var(--ef-ink-soft); box-shadow: 0 2px 8px rgba(0, 0, 0, .15); transition: transform var(--t-micro) var(--ease); }
+.vm .vm-heart { position: absolute; top: 14px; right: 14px; z-index: 2; width: 44px; height: 44px; border: 0; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .92); color: var(--ef-ink-soft); box-shadow: 0 2px 8px rgba(0, 0, 0, .15); transition: transform var(--t-micro) var(--ease); }
 .vm .vm-heart.on { color: var(--ef-red); }
 .vm .vm-heart:active { transform: scale(.88); }
 
 /* add button and quantity stepper */
 .vm .vm-add { width: 44px; height: 44px; margin-left: auto; border: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--ef-green-deep); color: #fff; font-size: 28px; line-height: 1; box-shadow: 0 3px 0 -1px var(--ef-amber); }
 .vm .vm-add:hover { background: #14501e; }
-.vm .vm-card .qstep { position: static; margin-left: auto; }
+.vm .vm-card .qstep { position: static; margin-left: auto; max-width: 100%; }
 .vm .vm-card .qstep button { width: 36px; height: 36px; font-size: 20px; }
 .vm .vm-card .qstep output { min-width: 22px; }
