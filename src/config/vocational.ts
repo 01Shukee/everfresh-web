@@ -11,10 +11,10 @@ export type VariantId = (typeof VARIANTS)[number]["id"];
 export const variantById = (id: unknown) => VARIANTS.find((v) => v.id === id);
 
 export const vocConfig = {
-  // Stated by the business: N5,000 acceptance (application-form) fee, non-refundable, and INCLUDED in the stated fees: it is credited off the programme invoice.
+  // N5,000 enquiry (application-form) fee: non-refundable. Paying it unlocks the curriculum. It is deducted from the school fees once the applicant is accepted.
   applicationFee: { kobo: 500_000, nonRefundable: true, creditedToTuition: true },
   paymentTerms: null as string | null, // PLACEHOLDER: institution's payment terms, printed on invoices when set
-  nextSteps: null as string | null, // PLACEHOLDER: what happens after an application is received (supplied by the institution)
+  nextSteps: "Wait for an email from us confirming your acceptance. Your school fees can be paid only after you are accepted." as string | null,
   // Required/optional fields. Only name, phone, email and address are required until the institution says otherwise.
   form: { dobRequired: false, educationRequired: false, emergencyContactRequired: false },
 };

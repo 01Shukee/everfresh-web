@@ -1,0 +1,23 @@
+warning: in the working copy of 'package-lock.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/app/application/[ref]/[token]/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/app/vocational-studies/intensive/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/app/vocational-studies/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/app/vocational-studies/regular/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/config/vocational.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/server/voc/api.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/server/voc/pdf.ts', LF will be replaced by CRLF the next time Git touches it
+package-lock.json
+package.json
+src/app/application/[ref]/[token]/page.tsx
+src/app/vocational-studies/intensive/page.tsx
+src/app/vocational-studies/page.tsx
+src/app/vocational-studies/regular/page.tsx
+src/components/voc/VariantBody.tsx
+src/components/voc/views.tsx
+src/config/vocational.ts
+src/server/voc/api.ts
+src/server/voc/autoinvoice.ts
+src/server/voc/emails.ts
+src/server/voc/pdf.ts
+tsconfig.tsbuildinfo

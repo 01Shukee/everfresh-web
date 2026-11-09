@@ -1,16 +1,97 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont } from "pdf-lib";
 import { variantById, vocConfig } from "../../config/vocational";
 import { site } from "../../config/site";
 import { formatNaira } from "../../lib/money";
 import { invoiceState, invoiceTotals, type Application, type Invoice, type Receipt } from "./model";
+import { chromium } from "playwright";
 
+/**
+ * Receipts, application confirmations and invoices.
+ * Each document is first described as a small neutral "Doc" (blocks of text, tables and banners), then drawn as a PDF with pdf-lib
+ * (no browser needed, so it works on Vercel) or, for tests, as HTML.
+ */
+type Fmt = (kobo: number) => string;
+const pdfMoney: Fmt = (k) => formatNaira(k).replace(/\u20A6\s*/g, "NGN ");   // the built-in PDF font has no naira sign
+
+type Block =
+  | { t: "meta"; rows: [string, string][] }
+  | { t: "table"; head: string[]; rows: string[][]; bold?: number[] }   // last column is right-aligned; bold = row numbers
+  | { t: "banner"; kind: "ok" | "warn"; text: string }
+  | { t: "note"; lead?: string; text: string };
+export interface Doc { title: string; no: string; issued: string | null; blocks: Block[]; stamp?: string }
+
+const date = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-NG", { dateStyle: "long", timeStyle: "short", timeZone: "Africa/Lagos" }) + " (WAT)" : "-");
+const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-NG", { dateStyle: "long", timeZone: "Africa/Lagos" }) : "-");
+const progLine = (a: Application) => { const v = variantById(a.variantId)!; const picks = a.courses?.length ? a.courses.join(", ") : a.course; const acc = a.accommodation === "hostel" ? "hostel student" : a.accommodation === "day" ? "day student" : null; const extra = [picks, acc].filter(Boolean).join("; "); return `${v.label}, ${v.durationLabel}${extra ? ` (${extra})` : ""}`; };
+const footerText = () => [site.legalName, site.contact.address, site.contact.phone, site.contact.email].filter(Boolean).join(" - ");
+
+let logoBytes: Uint8Array | null | undefined;
+function logoJpg(): Uint8Array | null {
+  if (logoBytes !== undefined) return logoBytes;
+  try { logoBytes = readFileSync(join(process.cwd(), "public/brand/everfresh-emblem-reference.jpg")); } catch { logoBytes = null; }
+  return logoBytes;
+}
+
+// ------------------------------------------------------------------ the three documents
+/** Proof of a payment that was verified (online) or recorded by staff (manual). */
+export function receiptDoc(r: Receipt, a: Application, f: Fmt): Doc {
+  const isApp = r.kind === "application_fee";
+  return {
+    title: "PAYMENT RECEIPT", no: r.number, issued: r.paidAt,
+    blocks: [
+      { t: "meta", rows: [["Receipt number", r.number], ["Application reference", a.ref], ["Applicant", a.details.fullName], ["Programme and duration", progLine(a)], ["Payment date", date(r.paidAt)], ["Payment status", r.method === "online" ? "Paid, verified with the payment provider" : "Paid, recorded by staff"], ["Transaction reference", r.transactionRef], ["Payment method", r.method === "online" ? "Online (card or bank transfer)" : "Manual (bank/teller)"]] },
+      { t: "table", head: ["Description", "Amount"], rows: [[isApp ? "Application-form fee" : `Payment towards invoice ${r.invoiceNumber ?? ""}`, f(r.amountKobo)], ["Amount paid", f(r.amountKobo)]], bold: [1] },
+      { t: "banner", kind: "ok", text: `Payment received: ${f(r.amountKobo)}` },
+      isApp
+        ? { t: "note", lead: "This is not an offer of admission.", text: `This receipt confirms payment of the application-form fee only. The fee is ${vocConfig.applicationFee.nonRefundable ? "non-refundable and " : ""}${vocConfig.applicationFee.creditedToTuition ? "will be deducted from your school fees if you are accepted." : "separate from tuition and other programme charges."}` }
+        : { t: "note", text: "This receipt confirms the payment shown. See the invoice for the remaining balance, if any." },
+    ],
+  };
+}
+
+export function confirmationDoc(a: Application, receipt: Receipt | null, f: Fmt): Doc {
+  const paid = a.payment.status === "paid"; const accepted = a.status === "admitted";
+  return {
+    title: "APPLICATION CONFIRMATION", no: a.ref, issued: a.submittedAt ?? a.createdAt,
+    blocks: [
+      { t: "meta", rows: [["Applicant", a.details.fullName], ["Application reference", a.ref], ["Programme and duration", progLine(a)], ["Application-form fee", f(a.feeKobo)], ["Payment status", paid ? "Paid, verified" : "Not yet paid"], ["Transaction reference", receipt?.transactionRef ?? "-"], ["Payment date", date(a.payment.paidAt)], ["Receipt number", receipt?.number ?? "-"], ["Application status", paid ? (accepted ? "Accepted" : "Received, awaiting review") : "Incomplete"]] },
+      { t: "banner", kind: paid ? "ok" : "warn", text: paid ? (accepted ? "Your application has been accepted." : "Your application has been received and its fee payment verified. It will now be reviewed.") : "Your application is incomplete until the application-form fee is paid." },
+      accepted
+        ? { t: "note", lead: "Accepted.", text: "You can now pay your school fees from your application page." }
+        : { t: "note", lead: "This is not an offer of admission.", text: "Payment of the application-form fee does not mean you have been accepted. You will be told the outcome of your application by the institution. School fees can be paid only after you are accepted." },
+      { t: "note", lead: "Next steps:", text: vocConfig.nextSteps ?? "Wait for an email from us confirming your acceptance." },
+    ],
+  };
+}
+
+/** An invoice is a request for payment. It is never proof of payment; receipts are. */
+export function invoiceDoc(i: Invoice, a: Application, f: Fmt): Doc {
+  const t = invoiceTotals(i), st = invoiceState(i);
+  const kind = { tuition: "Tuition", accommodation: "Accommodation", other: "Other charge", discount: "Discount" } as const;
+  const lines = i.lines.map((l) => [`${kind[l.kind]}: ${l.label}`, `${l.kind === "discount" ? "-" : ""}${f(l.amountKobo)}`]);
+  const n = lines.length;
+  const banner: Block = st === "paid"
+    ? { t: "banner", kind: "ok", text: "Paid in full. This invoice is not a receipt: please keep the individual payment receipts as proof of payment." }
+    : st === "draft" || st === "void"
+      ? { t: "banner", kind: "warn", text: `${st === "draft" ? "DRAFT: not yet issued" : "VOID: cancelled invoice"}. Do not pay against this document.` }
+      : { t: "banner", kind: "warn", text: `THIS IS AN INVOICE, NOT A RECEIPT. Payment is due. Outstanding balance: ${f(t.outstandingKobo)}.` };
+  return {
+    title: "INVOICE", no: i.number, issued: i.issuedAt ?? i.createdAt, stamp: st === "draft" ? "DRAFT" : st === "void" ? "VOID" : undefined,
+    blocks: [
+      { t: "meta", rows: [["Invoice number", i.number], ["Invoice date", day(i.issuedAt ?? i.createdAt)], ["Due date", i.dueDate ? day(i.dueDate) : "On receipt"], ["Application reference", a.ref], ["Billed to", a.details.fullName], ["Programme and duration", progLine(a)]] },
+      { t: "table", head: ["Description", "Amount"], rows: [...lines, ["Total programme cost", f(t.totalKobo)], ["Amount paid", f(t.paidKobo)], ["Outstanding balance", f(t.outstandingKobo)]], bold: [n, n + 2] },
+      ...(i.payments.length ? [{ t: "table" as const, head: ["Payments received", "Receipt no.", "Amount"], rows: i.payments.map((p) => [`${day(p.paidAt)} (${p.method})`, p.receiptNumber, f(p.amountKobo)]) }] : []),
+      banner,
+      { t: "note", lead: "Payment terms:", text: i.paymentTerms ?? vocConfig.paymentTerms ?? "[PAYMENT TERMS: to be supplied by the institution]" },
+      { t: "note", text: `The application-form fee (${f(vocConfig.applicationFee.kobo)}) was paid earlier and is ${vocConfig.applicationFee.creditedToTuition ? "already credited on this invoice." : "not included in this invoice."}` },
+    ],
+  };
+}
+
+// ------------------------------------------------------------------ HTML (used only when a test supplies its own renderer)
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-const date = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-NG", { dateStyle: "long", timeStyle: "short", timeZone: "Africa/Lagos" }) + " (WAT)" : "—");
-const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-NG", { dateStyle: "long", timeZone: "Africa/Lagos" }) : "—");
-let logo = "";
-function logoUri() { if (logo) return logo; try { logo = "data:image/jpeg;base64," + readFileSync(join(process.cwd(), "public/brand/everfresh-emblem-reference.jpg")).toString("base64"); } catch { logo = ""; } return logo; }
-
 const CSS = `*{box-sizing:border-box}body{margin:0;font:13px/1.5 "Nunito Sans","Noto Sans","DejaVu Sans",Arial,sans-serif;color:#1E1E1E}
 h1,h2{font-family:"Fraunces","Noto Serif","DejaVu Serif",Georgia,serif;margin:0}
 .top{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #FDB10F;padding-bottom:12px}.brand{display:flex;gap:12px;align-items:center}.brand img{width:56px;height:56px;border-radius:50%}
@@ -20,48 +101,142 @@ table{width:100%;border-collapse:collapse;margin:14px 0}th,td{padding:8px 10px;t
 .tot td{font-weight:700;border-top:2px solid #1B6B28}.banner{padding:10px 14px;border-radius:8px;font-weight:700;margin:14px 0}.warn{background:#FFF3CF;border:1.5px solid #B58300}.ok{background:#E6F2E7;border:1.5px solid #1B6B28;color:#1B6B28}
 .note{font-size:11.5px;color:#444;margin-top:14px}.stamp{position:fixed;top:45%;left:12%;font:800 90px "DejaVu Sans",Arial;color:rgba(215,25,31,.12);transform:rotate(-24deg)}
 .foot{margin-top:28px;border-top:1px solid #ccc;padding-top:8px;font-size:10.5px;color:#555}`;
-const head = (title: string, no: string, issued: string | null) => `<div class="top"><div class="brand">${logoUri() ? `<img src="${logoUri()}" alt="">` : ""}<div><b>${esc(site.legalName)}</b><span>Vocational Studies</span></div></div><div class="doc"><h1>${esc(title)}</h1><div>No. <b>${esc(no)}</b></div><div>${esc(date(issued))}</div></div></div>`;
-const page = (body: string, extra = "") => `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Everfresh</title><style>${CSS}</style></head><body>${extra}${body}<div class="foot">${esc(site.legalName)}${site.contact.address ? " · " + esc(site.contact.address) : ""}${site.contact.phone ? " · " + esc(site.contact.phone) : ""}${site.contact.email ? " · " + esc(site.contact.email) : ""}</div></body></html>`;
-const progLine = (a: Application) => { const v = variantById(a.variantId)!; const picks = a.courses?.length ? a.courses.join(", ") : a.course; const acc = a.accommodation === "hostel" ? "hostel student" : a.accommodation === "day" ? "day student" : null; const extra = [picks, acc].filter(Boolean).join("; "); return `${v.label}, ${v.durationLabel}${extra ? ` (${extra})` : ""}`; };
-const kv = (rows: [string, string][]) => `<div class="meta">${rows.map(([k, v]) => `<div><span>${esc(k)}</span>${esc(v)}</div>`).join("")}</div>`;
-
-/** Proof of a payment that was verified (online) or recorded by staff (manual). */
-export function receiptHtml(r: Receipt, a: Application): string {
-  const isApp = r.kind === "application_fee";
-  return page(`${head("PAYMENT RECEIPT", r.number, r.paidAt)}
-${kv([["Receipt number", r.number], ["Application reference", a.ref], ["Applicant", a.details.fullName], ["Programme and duration", progLine(a)], ["Payment date", date(r.paidAt)], ["Payment status", r.method === "online" ? "Paid, verified with the payment provider" : "Paid, recorded by staff"], ["Transaction reference", r.transactionRef], ["Payment method", r.method === "online" ? "Online (card or bank transfer)" : "Manual (bank/teller)"]])}
-<table><tr><th>Description</th><th class="n">Amount</th></tr><tr><td>${isApp ? "Application-form fee" : `Payment towards invoice ${esc(r.invoiceNumber)}`}</td><td class="n">${formatNaira(r.amountKobo)}</td></tr><tr class="tot"><td>Amount paid</td><td class="n">${formatNaira(r.amountKobo)}</td></tr></table>
-<div class="banner ok">Payment received: ${formatNaira(r.amountKobo)}</div>
-<p class="note">${isApp ? `This receipt confirms payment of the application-form fee only. It is not an offer of admission. The application-form fee is ${vocConfig.applicationFee.nonRefundable ? "non-refundable and " : ""}${vocConfig.applicationFee.creditedToTuition ? "credited against your programme invoice." : "separate from tuition and other programme charges."}` : "This receipt confirms the payment shown. See the invoice for the remaining balance, if any."}</p>`);
+const logoUri = () => { const b = logoJpg(); return b ? "data:image/jpeg;base64," + Buffer.from(b).toString("base64") : ""; };
+const blockHtml = (b: Block): string => {
+  if (b.t === "meta") return `<div class="meta">${b.rows.map(([k, v]) => `<div><span>${esc(k)}</span>${esc(v)}</div>`).join("")}</div>`;
+  if (b.t === "table") return `<table><tr>${b.head.map((h, i) => `<th${i === b.head.length - 1 ? ' class="n"' : ""}>${esc(h)}</th>`).join("")}</tr>${b.rows.map((r, ri) => `<tr${b.bold?.includes(ri) ? ' class="tot"' : ""}>${r.map((c, i) => `<td${i === r.length - 1 ? ' class="n"' : ""}>${esc(c)}</td>`).join("")}</tr>`).join("")}</table>`;
+  if (b.t === "banner") return `<div class="banner ${b.kind}">${esc(b.text)}</div>`;
+  return `<p class="note">${b.lead ? `<b>${esc(b.lead)}</b> ` : ""}${esc(b.text)}</p>`;
+};
+export function toHtml(d: Doc): string {
+  const head = `<div class="top"><div class="brand">${logoUri() ? `<img src="${logoUri()}" alt="">` : ""}<div><b>${esc(site.legalName)}</b><span>Vocational Studies</span></div></div><div class="doc"><h1>${esc(d.title)}</h1><div>No. <b>${esc(d.no)}</b></div><div>${esc(date(d.issued))}</div></div></div>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Everfresh</title><style>${CSS}</style></head><body>${d.stamp ? `<div class="stamp">${esc(d.stamp)}</div>` : ""}${head}${d.blocks.map(blockHtml).join("")}<div class="foot">${esc(footerText())}</div></body></html>`;
 }
 
-export function confirmationHtml(a: Application, receipt: Receipt | null): string {
-  const paid = a.payment.status === "paid";
-  return page(`${head("APPLICATION CONFIRMATION", a.ref, a.submittedAt ?? a.createdAt)}
-${kv([["Applicant", a.details.fullName], ["Application reference", a.ref], ["Programme and duration", progLine(a)], ["Application-form fee", formatNaira(a.feeKobo)], ["Payment status", paid ? "Paid, verified" : "Not yet paid"], ["Transaction reference", receipt?.transactionRef ?? "—"], ["Payment date", date(a.payment.paidAt)], ["Receipt number", receipt?.number ?? "—"], ["Application status", paid ? "Received, awaiting review" : "Incomplete"]])}
-<div class="banner ${paid ? "ok" : "warn"}">${paid ? "Your application has been received and its fee payment verified. It will now be reviewed." : "Your application is incomplete until the application-form fee is paid."}</div>
-<p class="note"><b>This is not an offer of admission.</b> Payment of the application-form fee does not mean you have been accepted. You will be told the outcome of your application by the institution.</p>
-<p class="note"><b>Next steps:</b> ${esc(vocConfig.nextSteps ?? "[NEXT STEPS: to be supplied by the institution]")}</p>`);
+// ------------------------------------------------------------------ PDF (pdf-lib)
+/** The built-in PDF fonts only know basic Latin: reduce accents, replace fancy punctuation, and never let an odd character crash the file. */
+const safe = (v: unknown) => String(v ?? "")
+  .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  .replace(/[\r\t]/g, " ").replace(/[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000]/g, " ")
+  .replace(/[\u2018\u2019\u201B]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[\u2013\u2014\u2212\u00B7]/g, "-").replace(/\u2026/g, "...")
+  .replace(/\u20A6\s*/g, "NGN ")
+  .replace(/[^\x20-\x7E\n]/g, "?");
+
+function wrap(text: string, f: PDFFont, size: number, width: number): string[] {
+  const out: string[] = [];
+  for (const para of text.split("\n")) {
+    let cur = "";
+    for (const word of para.split(/\s+/).filter(Boolean)) {
+      let w = word;
+      while (f.widthOfTextAtSize(w, size) > width) {   // a single very long word (an email, a reference): break it
+        let n = w.length; while (n > 1 && f.widthOfTextAtSize(w.slice(0, n), size) > width) n--;
+        if (cur) { out.push(cur); cur = ""; }
+        out.push(w.slice(0, n)); w = w.slice(n);
+      }
+      const test = cur ? `${cur} ${w}` : w;
+      if (f.widthOfTextAtSize(test, size) <= width) cur = test; else { out.push(cur); cur = w; }
+    }
+    out.push(cur);
+  }
+  return out;
 }
 
-/** An invoice is a request for payment. It is never proof of payment; receipts are. */
-export function invoiceHtml(i: Invoice, a: Application): string {
-  const t = invoiceTotals(i), st = invoiceState(i);
-  const kind = { tuition: "Tuition", accommodation: "Accommodation", other: "Other charge", discount: "Discount" } as const;
-  const rows = i.lines.map((l) => `<tr><td>${kind[l.kind]}: ${esc(l.label)}</td><td class="n">${l.kind === "discount" ? "-" : ""}${formatNaira(l.amountKobo)}</td></tr>`).join("");
-  const banner = st === "paid" ? `<div class="banner ok">Paid in full. This invoice is not a receipt: please keep the individual payment receipts as proof of payment.</div>` : st === "draft" || st === "void" ? `<div class="banner warn">${st === "draft" ? "DRAFT: not yet issued" : "VOID: cancelled invoice"}. Do not pay against this document.</div>` : `<div class="banner warn">THIS IS AN INVOICE, NOT A RECEIPT. Payment is due. Outstanding balance: ${formatNaira(t.outstandingKobo)}.</div>`;
-  return page(`${head("INVOICE", i.number, i.issuedAt ?? i.createdAt)}
-${kv([["Invoice number", i.number], ["Invoice date", day(i.issuedAt ?? i.createdAt)], ["Due date", i.dueDate ? day(i.dueDate) : "On receipt"], ["Application reference", a.ref], ["Billed to", a.details.fullName], ["Programme and duration", progLine(a)]])}
-<table><tr><th>Description</th><th class="n">Amount</th></tr>${rows}<tr class="tot"><td>Total programme cost</td><td class="n">${formatNaira(t.totalKobo)}</td></tr><tr><td>Amount paid</td><td class="n">${formatNaira(t.paidKobo)}</td></tr><tr class="tot"><td>Outstanding balance</td><td class="n">${formatNaira(t.outstandingKobo)}</td></tr></table>
-${i.payments.length ? `<table><tr><th>Payments received</th><th>Receipt no.</th><th class="n">Amount</th></tr>${i.payments.map((p) => `<tr><td>${esc(day(p.paidAt))} (${p.method})</td><td>${esc(p.receiptNumber)}</td><td class="n">${formatNaira(p.amountKobo)}</td></tr>`).join("")}</table>` : ""}
-${banner}
-<p class="note"><b>Payment terms:</b> ${esc(i.paymentTerms ?? vocConfig.paymentTerms ?? "[PAYMENT TERMS: to be supplied by the institution]")}</p>
-<p class="note">The application-form fee (${formatNaira(vocConfig.applicationFee.kobo)}) is separate and is not included in this invoice.</p>`, st === "draft" || st === "void" ? `<div class="stamp">${st === "draft" ? "DRAFT" : "VOID"}</div>` : "");
+export async function toPdf(doc: Doc): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  pdf.setTitle(safe(`${site.legalName} ${doc.title} ${doc.no}`));
+  const font = await pdf.embedFont(StandardFonts.Helvetica); const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const W = 595.28, H = 841.89, M = 42, CW = W - 2 * M;
+  const green = rgb(0.106, 0.42, 0.157), amber = rgb(0.992, 0.694, 0.059), ink = rgb(0.12, 0.12, 0.12), grey = rgb(0.35, 0.35, 0.35), rule = rgb(0.85, 0.85, 0.85);
+  let page = pdf.addPage([W, H]); let y = H - M;
+  const need = (h: number) => { if (y - h < M + 28) { page = pdf.addPage([W, H]); y = H - M; } };
+  const right = (s: string, size: number, f: PDFFont, yy: number, color = ink) => { const t = safe(s); page.drawText(t, { x: W - M - f.widthOfTextAtSize(t, size), y: yy, size, font: f, color }); };
+
+  // header
+  let hx = M; const logo = logoJpg();
+  if (logo) { try { const img = await pdf.embedJpg(logo); page.drawImage(img, { x: M, y: y - 46, width: 46, height: 46 }); hx = M + 58; } catch { /* no logo */ } }
+  page.drawText(safe(site.legalName), { x: hx, y: y - 16, size: 14, font: bold, color: green });
+  page.drawText("Vocational Studies", { x: hx, y: y - 30, size: 9, font, color: grey });
+  right(doc.title, 20, bold, y - 18, green); right(`No. ${doc.no}`, 10, bold, y - 33); right(date(doc.issued), 8.5, font, y - 45, grey);
+  y -= 58; page.drawRectangle({ x: M, y, width: CW, height: 2.5, color: amber }); y -= 20;
+
+  for (const b of doc.blocks) {
+    if (b.t === "meta") {
+      const colW = CW / 2 - 8;
+      for (let i = 0; i < b.rows.length; i += 2) {
+        const pair = b.rows.slice(i, i + 2).map(([k, v]) => ({ k: safe(k).toUpperCase(), lines: wrap(safe(v), font, 10, colW) }));
+        const h = Math.max(...pair.map((p) => 12 + p.lines.length * 13)) + 4; need(h);
+        pair.forEach((p, c) => { const x = M + c * (CW / 2 + 8); page.drawText(p.k, { x, y: y - 8, size: 7.5, font: bold, color: grey }); p.lines.forEach((ln, li) => page.drawText(ln, { x, y: y - 21 - li * 13, size: 10, font, color: ink })); });
+        y -= h;
+      }
+      y -= 6;
+    } else if (b.t === "table") {
+      const n = b.head.length; const lastW = 110; const otherW = (CW - lastW) / (n - 1);
+      const widths = b.head.map((_, i) => (i === n - 1 ? lastW : otherW));
+      const xs = widths.map((_, i) => M + widths.slice(0, i).reduce((s, w) => s + w, 0));
+      need(40);
+      b.head.forEach((h, i) => { const t = safe(h).toUpperCase(); const x = i === n - 1 ? xs[i] + widths[i] - 6 - bold.widthOfTextAtSize(t, 7.5) : xs[i] + 6; page.drawText(t, { x, y: y - 12, size: 7.5, font: bold, color: grey }); });
+      y -= 18; page.drawLine({ start: { x: M, y }, end: { x: M + CW, y }, thickness: 0.8, color: rule });
+      b.rows.forEach((row, ri) => {
+        const isB = !!b.bold?.includes(ri); const f = isB ? bold : font;
+        const cells = row.map((c, i) => wrap(safe(c), f, 10, widths[i] - 12));
+        const h = Math.max(...cells.map((l) => l.length)) * 13 + 10; need(h);
+        if (isB) page.drawLine({ start: { x: M, y }, end: { x: M + CW, y }, thickness: 1.5, color: green });
+        cells.forEach((lines, i) => lines.forEach((ln, li) => { const x = i === n - 1 ? xs[i] + widths[i] - 6 - f.widthOfTextAtSize(ln, 10) : xs[i] + 6; page.drawText(ln, { x, y: y - 15 - li * 13, size: 10, font: f, color: ink }); }));
+        y -= h; page.drawLine({ start: { x: M, y }, end: { x: M + CW, y }, thickness: 0.5, color: rule });
+      });
+      y -= 12;
+    } else if (b.t === "banner") {
+      const lines = wrap(safe(b.text), bold, 10.5, CW - 24); const h = lines.length * 14 + 16; need(h + 8);
+      const ok = b.kind === "ok";
+      page.drawRectangle({ x: M, y: y - h, width: CW, height: h, color: ok ? rgb(0.9, 0.95, 0.906) : rgb(1, 0.953, 0.812), borderColor: ok ? green : rgb(0.71, 0.51, 0), borderWidth: 1.2 });
+      lines.forEach((ln, li) => page.drawText(ln, { x: M + 12, y: y - 18 - li * 14, size: 10.5, font: bold, color: ok ? green : ink }));
+      y -= h + 12;
+    } else {
+      if (b.lead) { need(14); page.drawText(safe(b.lead), { x: M, y: y - 10, size: 9.5, font: bold, color: ink }); y -= 14; }
+      for (const ln of wrap(safe(b.text), font, 9, CW)) { need(12); page.drawText(ln, { x: M, y: y - 9, size: 9, font, color: grey }); y -= 12; }
+      y -= 6;
+    }
+  }
+
+  const footer = safe(footerText());
+  for (const p of pdf.getPages()) {
+    if (doc.stamp) p.drawText(safe(doc.stamp), { x: 90, y: 280, size: 110, font: bold, color: rgb(0.84, 0.1, 0.12), opacity: 0.12, rotate: degrees(35) });
+    p.drawLine({ start: { x: M, y: M }, end: { x: M + CW, y: M }, thickness: 0.5, color: rule });
+    wrap(footer, font, 8, CW).slice(0, 2).forEach((ln, i) => p.drawText(ln, { x: M, y: M - 12 - i * 10, size: 8, font, color: grey }));
+  }
+  return pdf.save();
 }
 
-/** Renders HTML to PDF with headless Chromium (full Unicode/font support, so the naira sign and Igbo letters render). Requires `npx playwright install chromium` on the host. */
+// ------------------------------------------------------------------ what the rest of the app calls
+export const receiptHtml = (r: Receipt, a: Application) => toHtml(receiptDoc(r, a, formatNaira));
+export const receiptPdf = (r: Receipt, a: Application) => toPdf(receiptDoc(r, a, pdfMoney));
+export const confirmationHtml = (a: Application, r: Receipt | null) => toHtml(confirmationDoc(a, r, formatNaira));
+export const confirmationPdf = (a: Application, r: Receipt | null) => toPdf(confirmationDoc(a, r, pdfMoney));
+export const invoiceHtml = (i: Invoice, a: Application) => toHtml(invoiceDoc(i, a, formatNaira));
+export const invoicePdf = (i: Invoice, a: Application) => toPdf(invoiceDoc(i, a, pdfMoney));
+
+/**
+ * Test-only HTML-to-PDF renderer using Playwright.
+ * Production PDF generation continues to use pdf-lib.
+ */
 export async function chromiumPdf(html: string): Promise<Uint8Array> {
-  let pw: any; try { pw = await import("playwright"); } catch { pw = (await import("node:module")).createRequire(join(process.cwd(), "package.json"))("playwright"); }
-  const b = await (pw.chromium ?? pw.default.chromium).launch();
-  try { const p = await b.newPage(); await p.setContent(html, { waitUntil: "load" }); return await p.pdf({ format: "A4", printBackground: true, margin: { top: "16mm", bottom: "16mm", left: "14mm", right: "14mm" } }); } finally { await b.close(); }
+  const browser = await chromium.launch({ headless: true });
+
+  try {
+    const page = await browser.newPage();
+
+    await page.setContent(html, { waitUntil: "load" });
+    await page.emulateMedia({ media: "print" });
+    await page.evaluate(() => document.fonts.ready);
+
+    const pdf = await page.pdf({
+      format: "A4",
+      printBackground: true,
+      preferCSSPageSize: true,
+    });
+
+    return new Uint8Array(pdf);
+  } finally {
+    await browser.close();
+  }
 }
