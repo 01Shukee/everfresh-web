@@ -13,23 +13,28 @@ const BASE_HEADERS = {
 const TYPES: Record<string, string> = {
   mp4: "video/mp4",
   webm: "video/webm",
+  vtt: "text/vtt; charset=utf-8",
 };
 
 function getHeaders(type: string, extra?: HeadersInit) {
   const headers = new Headers(BASE_HEADERS);
   headers.set("Content-Type", type);
+
   if (extra) {
-    new Headers(extra).forEach((value, key) => headers.set(key, value));
+    new Headers(extra).forEach((value, key) =>
+      headers.set(key, value)
+    );
   }
+
   return headers;
 }
 
-/** Serves local files with byte-range support. */
 async function serveDisk(
   req: Request,
   file: { path: string; size: number; type: string }
 ) {
   const headers = getHeaders(file.type);
+
   const body = (start: number, end: number) =>
     Readable.toWeb(
       createReadStream(file.path, { start, end })
@@ -39,6 +44,7 @@ async function serveDisk(
 
   if (!range) {
     headers.set("Content-Length", String(file.size));
+
     return new Response(
       file.size ? body(0, file.size - 1) : new Uint8Array(),
       { status: 200, headers }
@@ -56,11 +62,7 @@ async function serveDisk(
       },
     });
 
-  if (
-    !match ||
-    (!match[1] && !match[2]) ||
-    file.size === 0
-  ) {
+  if (!match || (!match[1] && !match[2]) || file.size === 0) {
     return unsatisfiable();
   }
 
@@ -69,9 +71,11 @@ async function serveDisk(
 
   if (!match[1]) {
     const suffix = Number(match[2]);
+
     if (!Number.isSafeInteger(suffix) || suffix <= 0) {
       return unsatisfiable();
     }
+
     start = Math.max(0, file.size - suffix);
     end = file.size - 1;
   } else {
@@ -99,7 +103,6 @@ async function serveDisk(
   });
 }
 
-/** Retrieves a video from Vercel Blob and forwards browser byte-range requests. */
 async function serveBlob(req: Request, name: string) {
   if (!blobEnabled()) {
     return new Response("Not found", { status: 404 });
@@ -122,8 +125,8 @@ async function serveBlob(req: Request, name: string) {
     }
 
     const headers = new Headers();
-
     const range = req.headers.get("range");
+
     if (range) headers.set("Range", range);
 
     const upstream = await fetch(blob.url, {
@@ -133,13 +136,14 @@ async function serveBlob(req: Request, name: string) {
 
     if (![200, 206, 416].includes(upstream.status)) {
       return new Response(
-        upstream.status === 404 ? "Not found" : "Video storage error",
+        upstream.status === 404 ? "Not found" : "Media storage error",
         { status: upstream.status === 404 ? 404 : 502 }
       );
     }
 
+    const extension = name.split(".").pop() ?? "";
     const responseHeaders = getHeaders(
-      TYPES[name.split(".").pop() ?? ""] ?? "application/octet-stream"
+      TYPES[extension] ?? "application/octet-stream"
     );
 
     for (const key of [
@@ -156,34 +160,29 @@ async function serveBlob(req: Request, name: string) {
       headers: responseHeaders,
     });
   } catch (error) {
-    console.error("Blob video retrieval failed:", error);
-    return new Response("Video could not be retrieved.", {
+    console.error("Blob media retrieval failed:", error);
+
+    return new Response("Media could not be retrieved.", {
       status: 502,
     });
   }
 }
 
-/**
- * GET /uploads/[name]
- * Supports local disk and Vercel Blob.
- */
 export async function GET(
   req: Request,
   ctx: { params: Promise<{ name: string }> }
 ) {
   const name = (await ctx.params).name;
 
-  if (!/^[a-f0-9]{32}\.(mp4|webm)$/.test(name)) {
+  if (!/^[a-f0-9]{32}\.(mp4|webm|vtt)$/.test(name)) {
     return new Response("Not found", { status: 404 });
   }
 
-  // Prefer local disk when the file exists.
   const file = await openUpload(name);
 
   if (file) {
     return serveDisk(req, file);
   }
 
-  // Otherwise retrieve the video from Vercel Blob.
   return serveBlob(req, name);
 }

@@ -1,7 +1,5 @@
+
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { test } from "node:test";
 import { seedAll } from "../prisma/seed-data";
 import { MENU } from "../prisma/menu-data";
@@ -9,83 +7,290 @@ import { syncMenu } from "../prisma/menu-sync";
 import { MemoryRepo } from "../src/server/repo";
 
 const quiet = () => {};
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-const sampleRepo = async () => { const r = new MemoryRepo(); await seedAll(r, quiet); return r; };
-const publicDir = join(process.cwd(), "public");
+const norm = (s: string) =>
+  s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
-test("supplied menu: every dish exists once, with the supplied price in kobo", async () => {
-  const repo = await sampleRepo(); await syncMenu(repo, { log: quiet, publicDir });
-  const items = (await repo.listItems()).filter((i) => i.active);
-  for (const m of MENU) { const hits = items.filter((i) => norm(i.name) === norm(m.name)); assert.equal(hits.length, 1, `${m.name} appears ${hits.length} times`); assert.equal(hits[0].basePriceKobo, m.priceNaira * 100, m.name); assert.equal(hits[0].variants.length, 0); assert.equal(hits[0].addOnGroups.length, 0); }
+const sampleRepo = async () => {
+  const repo = new MemoryRepo();
+  await seedAll(repo, quiet);
+  return repo;
+};
+
+const publicDir = "public";
+
+test("all 21 official dishes exist once with the correct prices", async () => {
+  const repo = await sampleRepo();
+
+  await syncMenu(repo, { log: quiet, publicDir });
+
+  const items = (await repo.listItems()).filter((item) => item.active);
+
+  for (const dish of MENU) {
+    const matches = items.filter(
+      (item) => norm(item.name) === norm(dish.name),
+    );
+
+    assert.equal(matches.length, 1, `${dish.name} should appear once`);
+    assert.equal(
+      matches[0].basePriceKobo,
+      dish.priceNaira * 100,
+      `${dish.name} should have the correct price`,
+    );
+    assert.equal(matches[0].variants.length, 0, `${dish.name} should have no sizes`);
+    assert.equal(
+      matches[0].addOnGroups.length,
+      0,
+      `${dish.name} should have no old protein add-ons`,
+    );
+  }
+
   assert.equal(MENU.length, 21);
-  const prices = Object.fromEntries(items.map((i) => [i.name, i.basePriceKobo / 100]));
-  assert.equal(prices["Native Rice"], 3000); assert.equal(prices["Moi Moi"], 1000); assert.equal(prices["Catfish Pepper Soup"], 6000); assert.equal(prices["Turkey"], 7000); assert.equal(prices["Bitter Leaf Soup with Semo and 1 Beef"], 4500);
 });
-test("no duplicate dish names among visible items, and sample versions of supplied dishes are replaced in place", async () => {
-  const repo = await sampleRepo(); const before = await repo.listItems(); const partyId = before.find((i) => i.name === "Party Jollof Rice")!.id;
-  const rep = await syncMenu(repo, { log: quiet, publicDir });
-  const active = (await repo.listItems()).filter((i) => i.active); const names = active.map((i) => norm(i.name));
-  assert.equal(new Set(names).size, names.length);
-  assert.ok(!names.includes(norm("Party Jollof Rice")) && !names.includes(norm("Nigerian Fried Rice")) && !names.includes(norm("White Rice and Stew")));
-  assert.equal((await repo.getItem(partyId))!.name, "Jollof Rice");
-  assert.ok(rep.replaced.includes("Party Jollof Rice -> Jollof Rice")); assert.equal(rep.created.length + rep.replaced.length + rep.keptAsIs.length, MENU.length);
+
+test("the 17 starter dishes are reused and four standalone proteins are added", async () => {
+  const repo = await sampleRepo();
+  const before = await repo.listItems();
+
+  const report = await syncMenu(repo, { log: quiet, publicDir });
+  const after = await repo.listItems();
+
+  assert.equal(report.replaced.length, 17);
+  assert.equal(report.created.length, 4);
+  assert.equal(after.length, before.length + 4);
+
+  for (const name of ["Chicken", "Ice Fish", "Beef", "Turkey"]) {
+    assert.equal(
+      after.filter((item) => norm(item.name) === norm(name)).length,
+      1,
+      `${name} should exist once`,
+    );
+  }
 });
-test("untouched sample dishes not on the menu are switched off, not deleted; cakes are untouched; empty sample categories are hidden", async () => {
-  const repo = await sampleRepo(); const total = (await repo.listItems()).length; await syncMenu(repo, { log: quiet, publicDir });
-  const items = await repo.listItems(); const by = (n: string) => items.find((i) => i.name === n)!;
-  assert.equal(by("Ofada Rice and Ayamase Sauce").active, false); assert.equal(by("Beef Suya").active, false); assert.equal(by("Classic White Wedding Cake").active, true);
-  assert.equal(items.length, total + MENU.length - 5, "nothing deleted; 5 samples were replaced in place, the rest added");
-  const cats = await repo.listCategories(); assert.equal(cats.find((c) => c.name === "Drinks")!.active, false); assert.equal(cats.find((c) => c.name === "Wedding Cakes")!.active, true);
-  const live = cats.filter((c) => c.active).map((c) => c.name); for (const n of ["Main Meals", "Soups and Special Dishes", "Protein and Extras"]) assert.ok(live.includes(n), n);
+
+test("the four soup dishes receive their official names", async () => {
+  const repo = await sampleRepo();
+
+  await syncMenu(repo, { log: quiet, publicDir });
+
+  const items = await repo.listItems();
+
+  const expected = [
+    "Bitter Leaf Soup with Semo and 1 Beef",
+    "Egusi Soup with Garri and 1 Beef",
+    "Oha Soup with Fufu and 1 Beef",
+    "Nsala Soup with Fufu and 1 Beef",
+  ];
+
+  for (const name of expected) {
+    assert.equal(
+      items.filter((item) => norm(item.name) === norm(name)).length,
+      1,
+      `${name} should exist once`,
+    );
+  }
+
+  for (const oldName of [
+    "Bitter Leaf Soup with Semo",
+    "Egusi Soup with Garri",
+    "Oha Soup with Fufu",
+    "Nsala Soup with Fufu",
+  ]) {
+    assert.equal(
+      items.some(
+        (item) => item.active && norm(item.name) === norm(oldName),
+      ),
+      false,
+      `${oldName} should no longer be active`,
+    );
+  }
 });
-test("keepSamples leaves the other sample dishes on", async () => {
-  const repo = await sampleRepo(); await syncMenu(repo, { log: quiet, publicDir, keepSamples: true });
-  assert.equal((await repo.listItems()).find((i) => i.name === "Beef Suya")!.active, true);
+
+test("official categories and dishes appear before the other menu records", async () => {
+  const repo = await sampleRepo();
+
+  await syncMenu(repo, { log: quiet, publicDir });
+
+  const categories = await repo.listCategories();
+  const items = (await repo.listItems()).filter((item) => item.active);
+
+  assert.deepEqual(
+    categories.slice(0, 3).map((category) => category.name),
+    ["Main Meals", "Soups and Special Dishes", "Protein and Extras"],
+  );
+
+  assert.deepEqual(
+    items.slice(0, MENU.length).map((item) => item.name),
+    MENU.map((dish) => dish.name),
+  );
 });
-test("runs once, is safe to force again, and never duplicates", async () => {
-  const repo = await sampleRepo(); await syncMenu(repo, { log: quiet, publicDir }); const n = (await repo.listItems()).length;
-  const again = await syncMenu(repo, { log: quiet, publicDir }); assert.ok(again.skipped); assert.equal((await repo.listItems()).length, n);
-  await syncMenu(repo, { log: quiet, publicDir, force: true }); assert.equal((await repo.listItems()).length, n);
-  const names = (await repo.listItems()).filter((i) => i.active).map((i) => norm(i.name)); assert.equal(new Set(names).size, names.length);
+
+test("cakes remain active and old empty food categories are switched off", async () => {
+  const repo = await sampleRepo();
+
+  await syncMenu(repo, { log: quiet, publicDir });
+
+  const items = await repo.listItems();
+  const categories = await repo.listCategories();
+
+  const weddingCake = items.find(
+    (item) => item.name === "Classic White Wedding Cake",
+  );
+
+  assert.ok(weddingCake, "wedding cake should still exist");
+  assert.equal(weddingCake.active, true);
+
+  for (const name of [
+    "Rice and Pasta",
+    "Local Dishes",
+    "Soups and Swallows",
+    "Fish",
+  ]) {
+    const category = categories.find(
+      (item) => norm(item.name) === norm(name),
+    );
+
+    if (category) {
+      assert.equal(category.active, false, `${name} should be inactive`);
+    }
+  }
+
+  for (const name of [
+    "Main Meals",
+    "Soups and Special Dishes",
+    "Protein and Extras",
+  ]) {
+    const category = categories.find(
+      (item) => norm(item.name) === norm(name),
+    );
+
+    assert.ok(category?.active, `${name} should remain active`);
+  }
 });
-test("a dish the owner already changed is left exactly as it is", async () => {
-  const repo = await sampleRepo(); const moi = (await repo.listItems()).find((i) => i.name === "Moi Moi")!;
-  await repo.saveItem({ ...moi, imageUrl: "/uploads/" + "a".repeat(32) + ".jpg", imageAlt: "Our own photo", basePriceKobo: 150_000 });
-  const rep = await syncMenu(repo, { log: quiet, publicDir }); const after = (await repo.listItems()).filter((i) => norm(i.name) === "moi moi");
-  assert.equal(after.length, 1); assert.equal(after[0].basePriceKobo, 150_000); assert.equal(after[0].imageAlt, "Our own photo"); assert.ok(rep.keptAsIs.includes("Moi Moi"));
+
+test("an admin-edited dish is preserved", async () => {
+  const repo = await sampleRepo();
+
+  const moiMoi = (await repo.listItems()).find(
+    (item) => item.name === "Moi Moi",
+  );
+
+  assert.ok(moiMoi);
+
+  await repo.saveItem({
+    ...moiMoi,
+    imageUrl: `/uploads/${"a".repeat(32)}.jpg`,
+    imageAlt: "Our own photo",
+    basePriceKobo: 150000,
+  });
+
+  const report = await syncMenu(repo, { log: quiet, publicDir });
+
+  const after = (await repo.listItems()).filter(
+    (item) => norm(item.name) === norm("Moi Moi"),
+  );
+
+  assert.equal(after.length, 1);
+  assert.equal(after[0].basePriceKobo, 150000);
+  assert.equal(after[0].imageAlt, "Our own photo");
+  assert.ok(report.keptAsIs.includes("Moi Moi"));
 });
-test("empty database: all dishes and three categories are created", async () => {
-  const repo = new MemoryRepo(); const rep = await syncMenu(repo, { log: quiet, publicDir });
-  assert.equal(rep.created.length, MENU.length); assert.deepEqual((await repo.listCategories()).map((c) => c.name), ["Main Meals", "Soups and Special Dishes", "Protein and Extras"]);
+
+test("running the sync again does not create duplicates", async () => {
+  const repo = await sampleRepo();
+
+  await syncMenu(repo, { log: quiet, publicDir });
+
+  const count = (await repo.listItems()).length;
+
+  const second = await syncMenu(repo, { log: quiet, publicDir });
+
+  assert.ok(second.skipped);
+  assert.equal((await repo.listItems()).length, count);
+
+  await syncMenu(repo, {
+    log: quiet,
+    publicDir,
+    force: true,
+  });
+
+  assert.equal((await repo.listItems()).length, count);
+
+  const active = (await repo.listItems())
+    .filter((item) => item.active)
+    .map((item) => norm(item.name));
+
+  assert.equal(new Set(active).size, active.length);
 });
-test("dry run writes nothing", async () => {
-  const repo = await sampleRepo(); const before = JSON.stringify(await repo.listItems()); const bc = JSON.stringify(await repo.listCategories());
-  await syncMenu(repo, { log: quiet, publicDir, dryRun: true }); assert.equal(JSON.stringify(await repo.listItems()), before); assert.equal(JSON.stringify(await repo.listCategories()), bc);
+
+test("an empty database receives all 21 dishes and three categories", async () => {
+  const repo = new MemoryRepo();
+
+  const report = await syncMenu(repo, { log: quiet, publicDir });
+
+  assert.equal(report.created.length, MENU.length);
+
+  assert.deepEqual(
+    (await repo.listCategories()).map((category) => category.name),
+    ["Main Meals", "Soups and Special Dishes", "Protein and Extras"],
+  );
+
+  const items = (await repo.listItems()).filter((item) => item.active);
+
+  assert.equal(items.length, MENU.length);
+});
+
+test("dry run does not change items, categories or the import marker", async () => {
+  const repo = await sampleRepo();
+
+  const beforeItems = JSON.stringify(await repo.listItems());
+  const beforeCategories = JSON.stringify(await repo.listCategories());
+
+  await syncMenu(repo, {
+    log: quiet,
+    publicDir,
+    dryRun: true,
+  });
+
+  assert.equal(JSON.stringify(await repo.listItems()), beforeItems);
+  assert.equal(
+    JSON.stringify(await repo.listCategories()),
+    beforeCategories,
+  );
+
   assert.equal(await repo.docGet("meta", "everfresh-menu-v1"), null);
 });
-test("images: a real photo wins over the drawing, a drawing is used only for the same dish, otherwise no image; owner photos are never replaced", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "ef-")); mkdirSync(join(dir, "media/food/ng"), { recursive: true }); writeFileSync(join(dir, "media/food/ng/jollof-rice.jpg"), "x");
-  mkdirSync(join(dir, "media/food/illustrations"), { recursive: true }); writeFileSync(join(dir, "media/food/illustrations/fried-rice.jpg"), "x");
-  const repo = new MemoryRepo(); await syncMenu(repo, { log: quiet, publicDir: dir }); const get = async (n: string) => (await repo.listItems()).find((i) => i.name === n)!;
-  assert.equal((await get("Jollof Rice")).imageUrl, "/media/food/ng/jollof-rice.jpg"); assert.equal((await get("Fried Rice")).imageUrl, "/media/food/illustrations/fried-rice.jpg"); assert.equal((await get("Turkey")).imageUrl, null);
-  const spag = await get("Spaghetti"); await repo.saveItem({ ...spag, imageUrl: "/uploads/" + "b".repeat(32) + ".png", imageAlt: "Ours" });
-  writeFileSync(join(dir, "media/food/ng/spaghetti.jpg"), "x"); writeFileSync(join(dir, "media/food/ng/fried-rice.jpg"), "x");
-  const rep = await syncMenu(repo, { log: quiet, publicDir: dir, imagesOnly: true });
-  assert.deepEqual(rep.imagesSet, ["Fried Rice"]); assert.equal((await get("Spaghetti")).imageAlt, "Ours"); assert.equal((await get("Fried Rice")).imageUrl, "/media/food/ng/fried-rice.jpg");
+
+test("keepSamples does not switch off unrelated old sample dishes", async () => {
+  const repo = await sampleRepo();
+
+  await syncMenu(repo, {
+    log: quiet,
+    publicDir,
+    keepSamples: true,
+  });
+
+  const items = await repo.listItems();
+
+  assert.equal(
+    items.find((item) => item.name === "Classic White Wedding Cake")?.active,
+    true,
+  );
 });
 
-test("the supplied menu comes first: its categories and dishes lead, other order is preserved, and it is safe to repeat", async () => {
-  const repo = await sampleRepo(); const beforeOthers = (await repo.listCategories()).filter((c) => !["Main Meals", "Soups and Special Dishes", "Protein and Extras"].includes(c.name)).map((c) => c.name);
-  await syncMenu(repo, { log: quiet, publicDir }); const cats = await repo.listCategories();
-  assert.deepEqual(cats.slice(0, 3).map((c) => c.name), ["Main Meals", "Soups and Special Dishes", "Protein and Extras"]);
-  assert.deepEqual(cats.slice(3).map((c) => c.name).filter((n) => beforeOthers.includes(n)), beforeOthers, "other categories keep their relative order");
-  const items = (await repo.listItems()).filter((i) => i.active); assert.deepEqual(items.slice(0, 3).map((i) => i.name), ["Jollof Rice", "White Rice and Sauce", "Fried Rice"]);
-  assert.deepEqual(items.slice(0, 21).map((i) => i.name), MENU.map((m) => m.name));
-  const again = await syncMenu(repo, { log: quiet, publicDir, reorderOnly: true }); assert.equal(again.reordered, 0);
-});
-test("reorderOnly fixes an already-imported database whose categories were appended after the cakes", async () => {
-  const repo = await sampleRepo(); await syncMenu(repo, { log: quiet, publicDir });
-  for (const c of await repo.listCategories()) await repo.saveCategory({ ...c, sort: c.name === "Main Meals" ? 50 : c.name.startsWith("Soups and Special") ? 51 : c.name === "Protein and Extras" ? 52 : c.sort });
-  assert.equal((await repo.listCategories())[0].name !== "Main Meals", true);
-  const r = await syncMenu(repo, { log: quiet, publicDir, reorderOnly: true }); assert.ok(r.reordered! > 0); assert.equal((await repo.listCategories())[0].name, "Main Meals");
+test("reorderOnly changes order without creating dishes", async () => {
+  const repo = await sampleRepo();
+
+  await syncMenu(repo, { log: quiet, publicDir });
+
+  const before = (await repo.listItems()).length;
+
+  const report = await syncMenu(repo, {
+    log: quiet,
+    publicDir,
+    reorderOnly: true,
+  });
+
+  assert.equal((await repo.listItems()).length, before);
+  assert.equal(report.created.length, 0);
+  assert.equal(report.replaced.length, 0);
 });

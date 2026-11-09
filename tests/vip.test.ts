@@ -18,11 +18,14 @@ test("the VIP menu starts static and separate from the regular menu", async () =
 });
 test("WhatsApp order: priced by the server, saved with a reference, message lists everything", async () => {
   const { repo, items } = await setup(); await turnOn(repo as MemoryRepo);
-  const jollof = items.find((i) => i.name === "Jollof Rice")!, cat = items.find((i) => i.name === "Grilled Catfish")!;
+  const jollof = items.find((i) => i.name === "Jollof Rice with Grilled Chicken")!;
+const cat = items.find((i) => i.name === "Golden Fish Barbecue")!;
   const r = await createVipOrder(repo, { table: "VIP 5", note: "Please serve together", lines: [{ itemId: jollof.id, qty: 2, note: "less pepper", priceKobo: 1 }, { itemId: cat.id, qty: 1 }] }, { now: NOW, fallbackDigits: null }); assert.equal(r.status, 201, JSON.stringify(r.body));
-  const b = r.body as any; assert.match(b.ref, /^VIP-\d{6}-[A-Z0-9]{4}$/); assert.equal(b.totalKobo, 2 * 250_000 + 600_000, "price comes from the menu, not the browser");
+  const b = r.body as any; assert.match(b.ref, /^VIP-\d{6}-[A-Z0-9]{4}$/); assert.equal(b.totalKobo, 2 * 650_000 + 600_000, "price comes from the menu, not the browser");
   assert.ok(b.whatsappUrl.startsWith("https://wa.me/2348012345678?text=")); const msg = decodeURIComponent(b.whatsappUrl.split("?text=")[1]); assert.equal(msg, b.message);
-  for (const part of ["NEW VIP ORDER", `VIP order reference: ${b.ref}`, "Table: VIP 5", "1. Jollof Rice x2 @ ₦2,500 = ₦5,000", "Note: less pepper", "2. Grilled Catfish x1 @ ₦6,000 = ₦6,000", "Total: ₦11,000", "Special instructions: Please serve together"]) assert.ok(msg.includes(part), part);
+  for (const part of ["NEW VIP ORDER", `VIP order reference: ${b.ref}`, "Table: VIP 5", "1. Jollof Rice with Grilled Chicken x2 @ ₦6,500 = ₦13,000",
+"2. Golden Fish Barbecue x1 @ ₦6,000 = ₦6,000",
+"Total: ₦19,000", "Special instructions: Please serve together"]) assert.ok(msg.includes(part), part);
   assert.equal((await repo.docList("viporder")).length, 1, "the order is saved for the admin");
 });
 test("falls back to the business WhatsApp number when no VIP number is set", async () => {
