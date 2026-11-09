@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { VipMenu } from "@/components/vip/VipMenu";
 import { getRepo, whatsappDigitsFor } from "@/server/runtime";
 import { publicVip } from "@/server/vip/service";
+import "./vip.css";
 
 // Unlisted on purpose: guests reach it from the QR code at their table, so it is kept out of search results and the site menu.
 export const metadata: Metadata = { title: "VIP Menu", robots: { index: false, follow: false } };

@@ -5,14 +5,15 @@
 // the admin's "Upload photo" button or by pasting a new path/URL).
 // Prices, fees, delivery areas, hours and programme details are SAMPLE values for review: change them in the admin.
 // Safe to re-run: each area is seeded only while it is still empty, so admin edits are never overwritten or duplicated.
+// The VIP menu is seeded by prisma/seed-vip.ts.
 import { saveCategory, saveItem } from "../src/server/admin-api";
 import { saveOrderingSettings } from "../src/server/ordering-settings";
 import type { Repo } from "../src/server/repo";
 import { saveCateringContent, saveGallery } from "../src/server/catering/service";
 import { defaultSettings, saveSection, type Section } from "../src/server/site/settings";
-import { saveVipCategory, saveVipItem, saveVipSettings } from "../src/server/vip/service";
 import { saveContent, saveMedia } from "../src/server/voc/admin";
 import { saveInstitute } from "../src/server/voc/institute";
+import { seedVip } from "./seed-vip";
 
 type Log = (msg: string) => void;
 const m = (p: string) => `/media/${p}.jpg`;
@@ -154,7 +155,7 @@ const SITE = {
     { q: "Can I schedule an order in advance?", a: "Yes. Choose a date and time at checkout. Scheduled orders need at least 24 hours' notice and can be booked up to 30 days ahead." },
     { q: "How does delivery work, and what does it cost?", a: "Delivery fees depend on your delivery area and are shown at checkout before you pay. You can also collect your order from our pickup point." },
     { q: "How do I pay?", a: "You pay securely online by card or bank transfer at checkout." },
-    { q: "How do I apply for a vocational programme?", a: "Choose a programme, complete the application form and pay the ₦5,000 application-form fee. The fee is non-refundable and is deducted from your total fees. Your programme invoice appears automatically once the payment is confirmed, and you pay the balance there." },
+    { q: "How do I apply for a vocational programme?", a: "Choose a programme, complete the application form and pay the ₦5,000 application-form fee. The fee is non-refundable. Once it is paid you can see the programme curriculum. Then wait for our acceptance email: school fees can be paid only after you have been accepted, and the ₦5,000 is deducted from them." },
     { q: "How do I get a quotation for an event?", a: "Open Event Catering and fill in the quotation form with your date, place, number of guests and needs. Your request opens in WhatsApp: press Send so it reaches us." },
     { q: "Can I track my order or application?", a: "Yes. Use the private link we sent you, or use \"Find my order or application\" at the bottom of any page." },
   ].map((f, sort) => ({ ...f, published: true, sort })),
@@ -202,23 +203,15 @@ const OLD_SAMPLE_PROGRAMME_NOTE = "Intake dates are confirmed by admissions afte
 const INSTITUTE = { name: "Vocational Institute", address: "No 1 Regent Street, Nnewi", phones: ["08101032983", "08083143342", "08035006435", "08038472422", "09033697799"], note: "For confirmation: Engr. Ibezim Ojukwu 08133300777" };
 async function seedVocational(repo: Repo, log: Log) {
   const done: string[] = [];
+  // FORCE_VOC=1 re-applies the programme details below over whatever is in the database (including edits made in the admin).
+  // WARNING: it also empties the Regular Programme's curriculum, courses and benefits. Use it only to repair wrong data.
   const force = process.env.FORCE_VOC === "1";
-if (force || !(await repo.docGet("meta", "seed-institute-v1"))) {
+  if (force || !(await repo.docGet("meta", "seed-institute-v1"))) {
     for (const [id, c] of Object.entries(INSTITUTE_PROGRAMMES)) {
       const cur = await repo.docGet<any>("content", id);
       // Replace missing content or my earlier SAMPLE content; keep anything the owner has written themselves.
       if (!force && cur && cur.summary && !OLD_SAMPLE_SUMMARIES.includes(cur.summary)) { log(`  programme ${id}: you have edited it, so it was kept`); continue; }
-      const carry = !force && id === "regular-3y" && cur
-  ? {
-      courses: cur.courses,
-      curriculum: cur.curriculum,
-      benefits: cur.benefits,
-    }
-  : {
-      courses: [],
-      curriculum: [],
-      benefits: [],
-    };
+      const carry = !force && id === "regular-3y" && cur ? { courses: cur.courses, curriculum: cur.curriculum, benefits: cur.benefits } : { courses: [], curriculum: [], benefits: [] };
       must(`programme ${id}`, await saveContent(repo, id, { open: true, published: true, intakeNote: OLD_SAMPLE_PROGRAMME_NOTE, ...carry, ...c, requirements: id === "regular-3y" ? REG_REQUIREMENTS : INT_REQUIREMENTS, accommodation: c.accommodation ?? { available: null, note: null } })); done.push(id);
     }
     await repo.docPut("meta", "seed-institute-v1", { at: new Date().toISOString() });
@@ -282,21 +275,6 @@ const PORTFOLIO: P[] = [
   ["student", "Student with a treasure chest cake", "A chest cake with a feather and bottle topper.", "projects/student-treasure-chest-cake-feather", "Student in chef whites behind a treasure chest cake with a white feather"],
   ["student", "Student with an emerald cake", "A tiered emerald cake with gold detail.", "projects/student-emerald-cake", "Student in chef whites beside an emerald green tiered cake"],
 ];
-// ---------------------------------------------------------------- VIP menu (separate from the regular menu; starts as a read-only static menu)
-const VIP_STARTER: [string, [string, number, string, string][]][] = [
-  ["Mains", [["Jollof Rice", 2_500, "Freshly cooked jollof rice.", "jollof-rice"], ["Fried Rice", 2_500, "Freshly cooked fried rice.", "fried-rice"], ["Native Rice", 3_000, "Native rice served with sauce.", "ofada-rice"]]],
-  ["Soups and Swallows", [["Egusi Soup with Garri", 4_500, "Egusi soup served with garri and 1 beef.", "egusi-garri"], ["Oha Soup with Fufu", 4_500, "Oha soup served with fufu and 1 beef.", "oha-soup"]]],
-  ["Fish", [["Grilled Catfish", 6_000, "Whole grilled catfish.", "grilled-catfish"], ["Catfish Pepper Soup", 6_000, "Hot, aromatic catfish pepper soup.", "catfish-pepper-soup"]]],
-  ["Sides", [["Moi Moi", 1_000, "Moi moi (bean pudding).", "moi-moi"]]],
-];
-async function seedVip(repo: Repo, log: Log) {
-  if ((await repo.docList("vipcat")).length || (await repo.docList("vipitem")).length) return log("VIP menu: already has content, skipped");
-  // Starts as a static (read-only) menu; switch to WhatsApp ordering in Admin > VIP menu > Ordering and settings. These are sample prices to edit.
-  if (!(await repo.docGet("settings", "vip"))) must("VIP settings", await saveVipSettings(repo, { enabled: true, mode: "static", title: "VIP Menu", tableLabel: "Table" }));
-  let sort = 0, cs = 0;
-  for (const [name, list] of VIP_STARTER) { const cat = must("VIP category", await saveVipCategory(repo, { name, sort: cs++, active: true })); for (const [n, price, description, img] of list) must("VIP item", await saveVipItem(repo, { name: n, categoryId: cat.id, description, priceKobo: naira(price), imageUrl: m(`food/illustrations/${img}`), imageAlt: `Illustration of ${n}`, available: true, active: true, sort: sort++ })); }
-  log(`VIP menu: ${VIP_STARTER.length} categories, ${VIP_STARTER.reduce((t, [, l]) => t + l.length, 0)} sample items (static mode)`);
-}
 
 // ---------------------------------------------------------------- event catering
 const CAT_CONTENT = {
