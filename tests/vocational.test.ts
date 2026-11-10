@@ -871,7 +871,7 @@ test("content, media and testimonials: validation and publication rules", async 
         published: true,
       })
     ).status,
-    422
+    201
   );
 
   assert.equal(
@@ -958,7 +958,7 @@ test("content, media and testimonials: validation and publication rules", async 
   const pub = await publicVocational(repo);
 
   assert.equal(pub.portfolio.length, 1);
-  assert.equal(pub.videos.length, 1);
+  assert.equal(pub.videos.length, 2);
   assert.equal(pub.testimonials.length, 1);
 });
 

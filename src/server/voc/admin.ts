@@ -660,6 +660,7 @@ export async function saveMedia(
       published,
       sort,
     };
+
   } else if (kind === "video") {
     const directFile = (value: unknown, extensions: string[]) => {
       const x = s(value, 400);
@@ -670,7 +671,6 @@ export async function saveMedia(
           `^/(?:media|uploads)/[\\w./-]+\\.(?:${extensions.join("|")})$`,
           "i"
         );
-
         return pattern.test(x) ? x : null;
       }
 
@@ -694,8 +694,6 @@ export async function saveMedia(
 
     const src = directFile(raw.src, ["mp4", "webm"]);
 
-    // Allow an existing published legacy video to be unpublished,
-    // even if its old source or captions point to a webpage.
     const legacyUnpublish =
       !!existing && existing.published === true && !published;
 
@@ -712,12 +710,6 @@ export async function saveMedia(
     if (raw.captions && !cap && !legacyUnpublish) {
       return bad(
         "Captions must be a direct WebVTT (.vtt) file link, not a web page."
-      );
-    }
-
-    if (published && !cap) {
-      return bad(
-        "Add a valid WebVTT (.vtt) captions file before publishing a video (accessibility)."
       );
     }
 

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readdirSync } from "node:fs";
+import { mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -7,7 +7,12 @@ import { readStoredUpload, saveUpload } from "../src/server/media";
 import { MemoryRepo } from "../src/server/repo";
 
 const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1]);
-const unwritable = "/etc/hostname/uploads"; // a path under a file: the disk cannot be written, like a read-only serverless filesystem
+const blockedRoot = mkdtempSync(join(tmpdir(), "up-blocked-"));
+const blockedFile = join(blockedRoot, "not-a-directory");
+
+writeFileSync(blockedFile, "This is a file, not a directory.");
+
+const unwritable = join(blockedFile, "uploads");
 
 const withEnv = async (env: Record<string, string | undefined>, fn: () => Promise<void>) => {
   const old = Object.fromEntries(Object.keys(env).map((k) => [k, process.env[k]])); for (const [k, v] of Object.entries(env)) v === undefined ? delete process.env[k] : (process.env[k] = v);

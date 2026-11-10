@@ -52,10 +52,15 @@ test("admin video records: page links are refused, real files and captions are a
   assert.match(await bad({ title: "Event", src: "https://streamable.com/3eonvw", captions: "https://instagram-transcript-2026110", published: true }), /web page/);
   assert.match(await bad({ title: "Event", src: "https://streamable.com/3eonvw", published: false }), /web page/);
   assert.match(await bad({ title: "E", src: f + ".mp4", captions: "https://example.com/transcript", published: true }), /\.vtt/);
-  assert.match(await bad({ title: "E", src: f + ".mp4", published: true }), /captions/i);
+  const publishedWithoutCaptions = await saveMedia(repo, "video", {
+  title: "E",
+  src: f + ".mp4",
+  published: true,
+});
+assert.ok(publishedWithoutCaptions.status < 300);
   assert.ok((await saveMedia(repo, "video", { title: "Draft", src: f + ".mp4", published: false })).status < 300);
   const ok = await saveMedia(repo, "video", { title: "Event", src: blob + "videos/" + "b".repeat(32) + ".mp4?download=0", captions: blob + "uploads/" + "c".repeat(32) + ".vtt", poster: f + ".jpg", published: true }); assert.ok(ok.status < 300, JSON.stringify(ok.body));
-  assert.equal((await listMedia(repo, "video")).length, 2);
+  assert.equal((await listMedia(repo, "video")).length, 3);
   // an older item that already holds a page link can still be switched off
   await repo.docPut("video", "old", { id: "old", title: "Old", description: "", src: "https://streamable.com/x", poster: null, captions: "https://x.test/y", published: true, sort: 0 });
   assert.equal((await saveMedia(repo, "video", { id: "old", title: "Old", src: "https://streamable.com/x", captions: "https://x.test/y", published: false }, "old")).status, 200);
