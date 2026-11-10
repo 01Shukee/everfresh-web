@@ -1,14 +1,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont } from "pdf-lib";
+import { PDFDocument, StandardFonts, appendBezierCurve, clip, closePath, degrees, endPath, moveTo, popGraphicsState, pushGraphicsState, rgb, type PDFFont, type PDFImage, type PDFPage, type RGB } from "pdf-lib";
 import { variantById, vocConfig } from "../../config/vocational";
 import { site } from "../../config/site";
 import { formatNaira } from "../../lib/money";
 import { invoiceState, invoiceTotals, type Application, type Invoice, type Receipt } from "./model";
-import { chromium } from "playwright";
 
 /**
- * Receipts, application confirmations and invoices.
+ * Receipts, application confirmations and invoices, in the same design as the Everfresh emails.
  * Each document is first described as a small neutral "Doc" (blocks of text, tables and banners), then drawn as a PDF with pdf-lib
  * (no browser needed, so it works on Vercel) or, for tests, as HTML.
  */
@@ -25,7 +24,9 @@ export interface Doc { title: string; no: string; issued: string | null; blocks:
 const date = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-NG", { dateStyle: "long", timeStyle: "short", timeZone: "Africa/Lagos" }) + " (WAT)" : "-");
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-NG", { dateStyle: "long", timeZone: "Africa/Lagos" }) : "-");
 const progLine = (a: Application) => { const v = variantById(a.variantId)!; const picks = a.courses?.length ? a.courses.join(", ") : a.course; const acc = a.accommodation === "hostel" ? "hostel student" : a.accommodation === "day" ? "day student" : null; const extra = [picks, acc].filter(Boolean).join("; "); return `${v.label}, ${v.durationLabel}${extra ? ` (${extra})` : ""}`; };
+const contactText = () => [site.contact.address, site.contact.phone, site.contact.email].filter(Boolean).join("  -  ");
 const footerText = () => [site.legalName, site.contact.address, site.contact.phone, site.contact.email].filter(Boolean).join(" - ");
+const nice = (t: string) => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();   // "PAYMENT RECEIPT" -> "Payment receipt"
 
 let logoBytes: Uint8Array | null | undefined;
 function logoJpg(): Uint8Array | null {
@@ -33,6 +34,10 @@ function logoJpg(): Uint8Array | null {
   try { logoBytes = readFileSync(join(process.cwd(), "public/brand/everfresh-emblem-reference.jpg")); } catch { logoBytes = null; }
   return logoBytes;
 }
+
+// The brand colours, the same ones the emails use (see emailTemplate.ts).
+const hex = (h: string) => rgb(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255);
+const P = { green: hex("#2E9E34"), deep: hex("#1B6B28"), amber: hex("#FDB10F"), cream: hex("#FAF8F2"), ink: hex("#1E1E1E"), line: hex("#E6E1D3"), soft: hex("#555555"), white: rgb(1, 1, 1), okBg: hex("#E8F3E9"), warnBg: hex("#FFF6DC"), red: hex("#D7191F") };
 
 // ------------------------------------------------------------------ the three documents
 /** Proof of a payment that was verified (online) or recorded by staff (manual). */
@@ -92,25 +97,30 @@ export function invoiceDoc(i: Invoice, a: Application, f: Fmt): Doc {
 
 // ------------------------------------------------------------------ HTML (used only when a test supplies its own renderer)
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-const CSS = `*{box-sizing:border-box}body{margin:0;font:13px/1.5 "Nunito Sans","Noto Sans","DejaVu Sans",Arial,sans-serif;color:#1E1E1E}
-h1,h2{font-family:"Fraunces","Noto Serif","DejaVu Serif",Georgia,serif;margin:0}
-.top{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #FDB10F;padding-bottom:12px}.brand{display:flex;gap:12px;align-items:center}.brand img{width:56px;height:56px;border-radius:50%}
-.brand b{font-size:16px;color:#1B6B28;display:block}.doc{text-align:right}.doc h1{font-size:24px;color:#1B6B28}
-.meta{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;margin:18px 0}.meta div span{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:#555;font-weight:700}
-table{width:100%;border-collapse:collapse;margin:14px 0}th,td{padding:8px 10px;text-align:left;border-bottom:1px solid #ddd}th{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:#555}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
-.tot td{font-weight:700;border-top:2px solid #1B6B28}.banner{padding:10px 14px;border-radius:8px;font-weight:700;margin:14px 0}.warn{background:#FFF3CF;border:1.5px solid #B58300}.ok{background:#E6F2E7;border:1.5px solid #1B6B28;color:#1B6B28}
-.note{font-size:11.5px;color:#444;margin-top:14px}.stamp{position:fixed;top:45%;left:12%;font:800 90px "DejaVu Sans",Arial;color:rgba(215,25,31,.12);transform:rotate(-24deg)}
-.foot{margin-top:28px;border-top:1px solid #ccc;padding-top:8px;font-size:10.5px;color:#555}`;
+const SERIF = "Georgia,'Times New Roman','Noto Serif','DejaVu Serif',serif";
+const SANS = "-apple-system,'Segoe UI',Roboto,'Nunito Sans','Noto Sans','DejaVu Sans',Helvetica,Arial,sans-serif";
+const CSS = `@page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;font:14px/1.6 ${SANS};color:#1E1E1E;background:#fff}
+.band{background:#1B6B28;padding:18px 44px;display:flex;justify-content:space-between;align-items:center}.brand{display:flex;align-items:center;gap:12px}.brand img{width:48px;height:48px;border-radius:50%;background:#fff}
+.wm{font:italic 700 26px/1 ${SERIF};color:#fff}.rt{text-align:right;color:#FAF8F2;font-size:11px;line-height:1.5}.stripe{height:5px;background:#FDB10F}
+.content{padding:26px 44px 8px}h1{margin:0 0 14px;font:700 28px/1.2 ${SERIF};color:#1B6B28}
+.badge{display:inline-block;background:#FDB10F;border-radius:10px;padding:10px 16px;font:700 18px/1 ${SANS};letter-spacing:.04em;margin:0 0 18px}
+table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid #E6E1D3;border-radius:12px;overflow:hidden;margin:0 0 18px}
+td,th{padding:10px 14px;text-align:left;vertical-align:top;border-top:1px solid #E6E1D3}tr:first-child>td,tr:first-child>th{border-top:0}
+.kv th{width:36%;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#1B6B28}.kv tr:nth-child(odd){background:#FAF8F2}
+.tb th{background:#FAF8F2;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#1B6B28}.tb td.n,.tb th.n{text-align:right;white-space:nowrap}.tb tr.strong td{background:#FAF8F2;font-weight:700}.tb td.credit{color:#1B6B28}
+.banner{border-radius:10px;padding:12px 16px;font-weight:700;margin:0 0 16px}.ok{background:#E8F3E9;border:1.5px solid #1B6B28;color:#1B6B28}.warn{background:#FFF6DC;border:1.5px solid #FDB10F}
+.note{margin:0 0 10px;font-size:13px}.stamp{position:fixed;top:45%;left:12%;font:800 90px ${SANS};color:rgba(215,25,31,.12);transform:rotate(-24deg)}
+.foot{background:#FAF8F2;border-top:1px solid #E6E1D3;padding:16px 44px;margin-top:24px;font-size:12px;color:#555}.foot b{display:block;color:#1B6B28;margin-top:6px}`;
 const logoUri = () => { const b = logoJpg(); return b ? "data:image/jpeg;base64," + Buffer.from(b).toString("base64") : ""; };
 const blockHtml = (b: Block): string => {
-  if (b.t === "meta") return `<div class="meta">${b.rows.map(([k, v]) => `<div><span>${esc(k)}</span>${esc(v)}</div>`).join("")}</div>`;
-  if (b.t === "table") return `<table><tr>${b.head.map((h, i) => `<th${i === b.head.length - 1 ? ' class="n"' : ""}>${esc(h)}</th>`).join("")}</tr>${b.rows.map((r, ri) => `<tr${b.bold?.includes(ri) ? ' class="tot"' : ""}>${r.map((c, i) => `<td${i === r.length - 1 ? ' class="n"' : ""}>${esc(c)}</td>`).join("")}</tr>`).join("")}</table>`;
+  if (b.t === "meta") return `<table class="kv">${b.rows.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join("")}</table>`;
+  if (b.t === "table") return `<table class="tb"><tr>${b.head.map((h, i) => `<th${i === b.head.length - 1 ? ' class="n"' : ""}>${esc(h)}</th>`).join("")}</tr>${b.rows.map((r, ri) => `<tr${b.bold?.includes(ri) ? ' class="strong"' : ""}>${r.map((c, i) => `<td class="${i === r.length - 1 ? "n" : ""}${i === r.length - 1 && c.startsWith("-") ? " credit" : ""}">${esc(c)}</td>`).join("")}</tr>`).join("")}</table>`;
   if (b.t === "banner") return `<div class="banner ${b.kind}">${esc(b.text)}</div>`;
   return `<p class="note">${b.lead ? `<b>${esc(b.lead)}</b> ` : ""}${esc(b.text)}</p>`;
 };
 export function toHtml(d: Doc): string {
-  const head = `<div class="top"><div class="brand">${logoUri() ? `<img src="${logoUri()}" alt="">` : ""}<div><b>${esc(site.legalName)}</b><span>Vocational Studies</span></div></div><div class="doc"><h1>${esc(d.title)}</h1><div>No. <b>${esc(d.no)}</b></div><div>${esc(date(d.issued))}</div></div></div>`;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Everfresh</title><style>${CSS}</style></head><body>${d.stamp ? `<div class="stamp">${esc(d.stamp)}</div>` : ""}${head}${d.blocks.map(blockHtml).join("")}<div class="foot">${esc(footerText())}</div></body></html>`;
+  const band = `<div class="band"><div class="brand">${logoUri() ? `<img src="${logoUri()}" alt="">` : ""}<span class="wm">Everfresh</span></div><div class="rt"><b>Vocational Studies</b><br>${esc(date(d.issued))}</div></div><div class="stripe"></div>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Everfresh</title><style>${CSS}</style></head><body>${d.stamp ? `<div class="stamp">${esc(d.stamp)}</div>` : ""}${band}<div class="content"><h1>${esc(d.title)}</h1><div class="badge">No. ${esc(d.no)}</div>${d.blocks.map(blockHtml).join("")}</div><div class="foot">${esc(contactText())}<b>${esc(site.legalName)}</b></div></body></html>`;
 }
 
 // ------------------------------------------------------------------ PDF (pdf-lib)
@@ -141,69 +151,115 @@ function wrap(text: string, f: PDFFont, size: number, width: number): string[] {
   return out;
 }
 
+/** A rounded rectangle as an SVG path, with its top-left corner at (0, 0). */
+const rrPath = (w: number, h: number, r: number) => `M ${r} 0 H ${w - r} Q ${w} 0 ${w} ${r} V ${h - r} Q ${w} ${h} ${w - r} ${h} H ${r} Q 0 ${h} 0 ${h - r} V ${r} Q 0 0 ${r} 0 Z`;
+type Row = { h: number; fill: RGB; draw: (top: number) => void };
+
 export async function toPdf(doc: Doc): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.setTitle(safe(`${site.legalName} ${doc.title} ${doc.no}`));
-  const font = await pdf.embedFont(StandardFonts.Helvetica); const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const W = 595.28, H = 841.89, M = 42, CW = W - 2 * M;
-  const green = rgb(0.106, 0.42, 0.157), amber = rgb(0.992, 0.694, 0.059), ink = rgb(0.12, 0.12, 0.12), grey = rgb(0.35, 0.35, 0.35), rule = rgb(0.85, 0.85, 0.85);
-  let page = pdf.addPage([W, H]); let y = H - M;
-  const need = (h: number) => { if (y - h < M + 28) { page = pdf.addPage([W, H]); y = H - M; } };
-  const right = (s: string, size: number, f: PDFFont, yy: number, color = ink) => { const t = safe(s); page.drawText(t, { x: W - M - f.widthOfTextAtSize(t, size), y: yy, size, font: f, color }); };
+  const sans = await pdf.embedFont(StandardFonts.Helvetica); const sansB = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const serifB = await pdf.embedFont(StandardFonts.TimesRomanBold); const serifBI = await pdf.embedFont(StandardFonts.TimesRomanBoldItalic);
+  let logo: PDFImage | null = null; const lb = logoJpg(); if (lb) { try { logo = await pdf.embedJpg(lb); } catch { logo = null; } }
+  const W = 595.28, H = 841.89, M = 44, CW = W - 2 * M, FOOT = 52, LIMIT = FOOT + 22;
+  let page: PDFPage = pdf.addPage([W, H]); let y = 0;
 
-  // header
-  let hx = M; const logo = logoJpg();
-  if (logo) { try { const img = await pdf.embedJpg(logo); page.drawImage(img, { x: M, y: y - 46, width: 46, height: 46 }); hx = M + 58; } catch { /* no logo */ } }
-  page.drawText(safe(site.legalName), { x: hx, y: y - 16, size: 14, font: bold, color: green });
-  page.drawText("Vocational Studies", { x: hx, y: y - 30, size: 9, font, color: grey });
-  right(doc.title, 20, bold, y - 18, green); right(`No. ${doc.no}`, 10, bold, y - 33); right(date(doc.issued), 8.5, font, y - 45, grey);
-  y -= 58; page.drawRectangle({ x: M, y, width: CW, height: 2.5, color: amber }); y -= 20;
+  const rrect = (x: number, top: number, w: number, h: number, r: number, o: { color?: RGB; borderColor?: RGB; borderWidth?: number }) => page.drawSvgPath(rrPath(w, h, r), { x, y: top, ...o });
+  const rightText = (s: string, size: number, f: PDFFont, yy: number, color: RGB) => { const t = safe(s); page.drawText(t, { x: W - M - f.widthOfTextAtSize(t, size), y: yy, size, font: f, color }); };
+
+  /** The green band with the logo and wordmark, the amber stripe, and the starting height for the content. Later pages get a slimmer band. */
+  function drawHeader(compact: boolean): number {
+    const bandH = compact ? 46 : 78, stripe = compact ? 3 : 5, r = compact ? 15 : 24;
+    page.drawRectangle({ x: 0, y: H - bandH, width: W, height: bandH, color: P.deep });
+    page.drawRectangle({ x: 0, y: H - bandH - stripe, width: W, height: stripe, color: P.amber });
+    const cx = M + r, cy = H - bandH / 2;
+    if (logo) {   // the logo is cropped to a circle, like in the email
+      page.drawCircle({ x: cx, y: cy, size: r, color: P.white });
+      const k = 0.5523 * r;
+      page.pushOperators(pushGraphicsState(), moveTo(cx + r, cy), appendBezierCurve(cx + r, cy + k, cx + k, cy + r, cx, cy + r), appendBezierCurve(cx - k, cy + r, cx - r, cy + k, cx - r, cy), appendBezierCurve(cx - r, cy - k, cx - k, cy - r, cx, cy - r), appendBezierCurve(cx + k, cy - r, cx + r, cy - k, cx + r, cy), closePath(), clip(), endPath());
+      page.drawImage(logo, { x: cx - r, y: cy - r, width: 2 * r, height: 2 * r });
+      page.pushOperators(popGraphicsState());
+    }
+    const ws = compact ? 17 : 26;
+    page.drawText("Everfresh", { x: M + 2 * r + 12, y: cy - ws * 0.32, size: ws, font: serifBI, color: P.white });
+    if (compact) rightText(`${nice(doc.title)} ${doc.no}`, 8.5, sans, cy - 3, P.cream);
+    else { rightText("Vocational Studies", 9, sansB, cy + 4, P.cream); rightText(date(doc.issued), 8.5, sans, cy - 9, P.cream); }
+    return H - bandH - stripe - (compact ? 26 : 32);
+  }
+  const nextPage = () => { page = pdf.addPage([W, H]); y = drawHeader(true); };
+  const need = (h: number) => { if (y - h < LIMIT) nextPage(); };
+
+  /** A bordered, rounded box made of rows. If it runs past the page, it continues in its own box on the next page. */
+  function box(rows: Row[]) {
+    let segTop = y;
+    const close = () => { if (segTop - y > 1) rrect(M, segTop, CW, segTop - y, 6, { borderColor: P.line, borderWidth: 1 }); };
+    rows.forEach((r, i) => {
+      if (y - r.h < LIMIT) { close(); nextPage(); segTop = y; }
+      page.drawRectangle({ x: M, y: y - r.h, width: CW, height: r.h, color: r.fill });
+      if (i > 0 && y !== segTop) page.drawLine({ start: { x: M, y }, end: { x: M + CW, y }, thickness: 0.7, color: P.line });
+      r.draw(y); y -= r.h;
+    });
+    close(); y -= 18;
+  }
+
+  function kvBlock(rows: [string, string][]) {
+    const LW = CW * 0.36;
+    box(rows.map(([k, v], i): Row => {
+      const kl = wrap(safe(k).toUpperCase(), sansB, 8, LW - 24), vl = wrap(safe(v), sans, 10, CW - LW - 16);
+      return { h: Math.max(kl.length * 11, vl.length * 13) + 20, fill: i % 2 ? P.white : P.cream, draw: (top) => { kl.forEach((l, j) => page.drawText(l, { x: M + 14, y: top - 19 - j * 11, size: 8, font: sansB, color: P.deep })); vl.forEach((l, j) => page.drawText(l, { x: M + LW, y: top - 21 - j * 13, size: 10, font: sans, color: P.ink })); } };
+    }));
+  }
+
+  function tableBlock(head: string[], rows: string[][], bold: number[] = []) {
+    const n = head.length, lastW = 130, otherW = (CW - lastW) / (n - 1);
+    const widths = head.map((_, i) => (i === n - 1 ? lastW : otherW));
+    const xs = widths.map((_, i) => M + widths.slice(0, i).reduce((s, w) => s + w, 0));
+    const put = (i: number, s: string, f: PDFFont, size: number, base: number, color: RGB) => page.drawText(s, { x: i === n - 1 ? xs[i] + widths[i] - 14 - f.widthOfTextAtSize(s, size) : xs[i] + 14, y: base, size, font: f, color });
+    const specs: Row[] = [{ h: 26, fill: P.cream, draw: (top) => head.forEach((h, i) => put(i, safe(h).toUpperCase(), sansB, 8, top - 17, P.deep)) }];
+    rows.forEach((row, ri) => {
+      const b = bold.includes(ri), f = b ? sansB : sans; const cells = row.map((c, i) => wrap(safe(c), f, 10.5, widths[i] - 28));
+      specs.push({ h: Math.max(...cells.map((l) => l.length)) * 14 + 18, fill: b ? P.cream : P.white, draw: (top) => cells.forEach((lines, i) => lines.forEach((ln, li) => put(i, ln, f, 10.5, top - 19 - li * 14, i === n - 1 && ln.startsWith("-") ? P.deep : P.ink))) });
+    });
+    box(specs);
+  }
+
+  function bannerBlock(kind: "ok" | "warn", text: string) {
+    const lines = wrap(safe(text), sansB, 10.5, CW - 32), h = lines.length * 14 + 24; need(h + 4);
+    const ok = kind === "ok";
+    rrect(M, y, CW, h, 8, { color: ok ? P.okBg : P.warnBg, borderColor: ok ? P.deep : P.amber, borderWidth: 1.2 });
+    lines.forEach((ln, li) => page.drawText(ln, { x: M + 16, y: y - 22 - li * 14, size: 10.5, font: sansB, color: ok ? P.deep : P.ink }));
+    y -= h + 16;
+  }
+
+  function noteBlock(lead: string | undefined, text: string) {
+    if (lead) { need(16); page.drawText(safe(lead), { x: M, y: y - 11, size: 10.5, font: sansB, color: P.ink }); y -= 16; }
+    for (const ln of wrap(safe(text), sans, 10, CW)) { need(14); page.drawText(ln, { x: M, y: y - 10, size: 10, font: sans, color: P.ink }); y -= 14; }
+    y -= 10;
+  }
+
+  // ---- first page: header, title and the amber reference badge (like the email)
+  y = drawHeader(false);
+  page.drawText(safe(nice(doc.title)), { x: M, y: y - 22, size: 24, font: serifB, color: P.deep }); y -= 40;
+  const badge = safe(doc.no), bw = sansB.widthOfTextAtSize(badge, 14) + 32;
+  rrect(M, y, bw, 32, 8, { color: P.amber }); page.drawText(badge, { x: M + 16, y: y - 21, size: 14, font: sansB, color: P.ink }); y -= 52;
 
   for (const b of doc.blocks) {
-    if (b.t === "meta") {
-      const colW = CW / 2 - 8;
-      for (let i = 0; i < b.rows.length; i += 2) {
-        const pair = b.rows.slice(i, i + 2).map(([k, v]) => ({ k: safe(k).toUpperCase(), lines: wrap(safe(v), font, 10, colW) }));
-        const h = Math.max(...pair.map((p) => 12 + p.lines.length * 13)) + 4; need(h);
-        pair.forEach((p, c) => { const x = M + c * (CW / 2 + 8); page.drawText(p.k, { x, y: y - 8, size: 7.5, font: bold, color: grey }); p.lines.forEach((ln, li) => page.drawText(ln, { x, y: y - 21 - li * 13, size: 10, font, color: ink })); });
-        y -= h;
-      }
-      y -= 6;
-    } else if (b.t === "table") {
-      const n = b.head.length; const lastW = 110; const otherW = (CW - lastW) / (n - 1);
-      const widths = b.head.map((_, i) => (i === n - 1 ? lastW : otherW));
-      const xs = widths.map((_, i) => M + widths.slice(0, i).reduce((s, w) => s + w, 0));
-      need(40);
-      b.head.forEach((h, i) => { const t = safe(h).toUpperCase(); const x = i === n - 1 ? xs[i] + widths[i] - 6 - bold.widthOfTextAtSize(t, 7.5) : xs[i] + 6; page.drawText(t, { x, y: y - 12, size: 7.5, font: bold, color: grey }); });
-      y -= 18; page.drawLine({ start: { x: M, y }, end: { x: M + CW, y }, thickness: 0.8, color: rule });
-      b.rows.forEach((row, ri) => {
-        const isB = !!b.bold?.includes(ri); const f = isB ? bold : font;
-        const cells = row.map((c, i) => wrap(safe(c), f, 10, widths[i] - 12));
-        const h = Math.max(...cells.map((l) => l.length)) * 13 + 10; need(h);
-        if (isB) page.drawLine({ start: { x: M, y }, end: { x: M + CW, y }, thickness: 1.5, color: green });
-        cells.forEach((lines, i) => lines.forEach((ln, li) => { const x = i === n - 1 ? xs[i] + widths[i] - 6 - f.widthOfTextAtSize(ln, 10) : xs[i] + 6; page.drawText(ln, { x, y: y - 15 - li * 13, size: 10, font: f, color: ink }); }));
-        y -= h; page.drawLine({ start: { x: M, y }, end: { x: M + CW, y }, thickness: 0.5, color: rule });
-      });
-      y -= 12;
-    } else if (b.t === "banner") {
-      const lines = wrap(safe(b.text), bold, 10.5, CW - 24); const h = lines.length * 14 + 16; need(h + 8);
-      const ok = b.kind === "ok";
-      page.drawRectangle({ x: M, y: y - h, width: CW, height: h, color: ok ? rgb(0.9, 0.95, 0.906) : rgb(1, 0.953, 0.812), borderColor: ok ? green : rgb(0.71, 0.51, 0), borderWidth: 1.2 });
-      lines.forEach((ln, li) => page.drawText(ln, { x: M + 12, y: y - 18 - li * 14, size: 10.5, font: bold, color: ok ? green : ink }));
-      y -= h + 12;
-    } else {
-      if (b.lead) { need(14); page.drawText(safe(b.lead), { x: M, y: y - 10, size: 9.5, font: bold, color: ink }); y -= 14; }
-      for (const ln of wrap(safe(b.text), font, 9, CW)) { need(12); page.drawText(ln, { x: M, y: y - 9, size: 9, font, color: grey }); y -= 12; }
-      y -= 6;
-    }
+    if (b.t === "meta") kvBlock(b.rows);
+    else if (b.t === "table") tableBlock(b.head, b.rows, b.bold);
+    else if (b.t === "banner") bannerBlock(b.kind, b.text);
+    else noteBlock(b.lead, b.text);
   }
 
-  const footer = safe(footerText());
-  for (const p of pdf.getPages()) {
-    if (doc.stamp) p.drawText(safe(doc.stamp), { x: 90, y: 280, size: 110, font: bold, color: rgb(0.84, 0.1, 0.12), opacity: 0.12, rotate: degrees(35) });
-    p.drawLine({ start: { x: M, y: M }, end: { x: M + CW, y: M }, thickness: 0.5, color: rule });
-    wrap(footer, font, 8, CW).slice(0, 2).forEach((ln, i) => p.drawText(ln, { x: M, y: M - 12 - i * 10, size: 8, font, color: grey }));
-  }
+  // ---- footer on every page, then the DRAFT / VOID stamp
+  const pages = pdf.getPages(); const contact = wrap(safe(contactText()), sans, 8.5, CW)[0] ?? "";
+  pages.forEach((p, i) => {
+    p.drawRectangle({ x: 0, y: 0, width: W, height: FOOT, color: P.cream });
+    p.drawLine({ start: { x: 0, y: FOOT }, end: { x: W, y: FOOT }, thickness: 0.8, color: P.line });
+    if (contact) p.drawText(contact, { x: M, y: 33, size: 8.5, font: sans, color: P.soft });
+    p.drawText(safe(site.legalName), { x: M, y: 19, size: 9, font: sansB, color: P.deep });
+    const pn = `Page ${i + 1} of ${pages.length}`; p.drawText(pn, { x: W - M - sans.widthOfTextAtSize(pn, 8), y: 19, size: 8, font: sans, color: P.soft });
+    if (doc.stamp) p.drawText(safe(doc.stamp), { x: 90, y: 280, size: 110, font: sansB, color: P.red, opacity: 0.12, rotate: degrees(35) });
+  });
   return pdf.save();
 }
 
@@ -214,12 +270,15 @@ export const confirmationHtml = (a: Application, r: Receipt | null) => toHtml(co
 export const confirmationPdf = (a: Application, r: Receipt | null) => toPdf(confirmationDoc(a, r, pdfMoney));
 export const invoiceHtml = (i: Invoice, a: Application) => toHtml(invoiceDoc(i, a, formatNaira));
 export const invoicePdf = (i: Invoice, a: Application) => toPdf(invoiceDoc(i, a, pdfMoney));
+export { footerText };
 
 /**
  * Test-only HTML-to-PDF renderer using Playwright.
- * Production PDF generation continues to use pdf-lib.
+ * Production PDF generation continues to use pdf-lib. Playwright is loaded here, only when a test asks for it,
+ * so the live site never loads the browser library.
  */
 export async function chromiumPdf(html: string): Promise<Uint8Array> {
+  const { chromium } = await import("playwright");
   const browser = await chromium.launch({ headless: true });
 
   try {
