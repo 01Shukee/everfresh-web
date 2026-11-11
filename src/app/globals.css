@@ -345,3 +345,122 @@ dialog { border: 0; padding: 0; color: var(--ef-ink); } dialog::backdrop { backg
 .stage .hero-studies,
 .stage .hero-catering { width: 100%; height: 86%; inset: 0 auto auto 0; }
 html, body { overflow-x: clip; }
+
+
+/* ===== Chef Fresh loading screen ===== */
+
+.ef-loading-screen {
+  min-height: min(72vh, 620px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 50px 20px;
+}
+
+.ef-chef {
+  width: clamp(150px, 34vw, 220px);
+  margin: 0 auto 12px;
+  animation: ef-chef-bob 2.8s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+.ef-chef-art {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.ef-chef-wave {
+  transform-box: fill-box;
+  transform-origin: 12% 18%;
+  animation: ef-chef-wave 1.8s ease-in-out infinite;
+}
+
+.ef-loading-title {
+  margin: 8px 0 4px;
+  color: #1B6B28;
+  font-size: clamp(1.15rem, 3vw, 1.55rem);
+  line-height: 1.25;
+  font-weight: 800;
+}
+
+.ef-loading-subtitle {
+  margin: 0;
+  color: #666;
+  font-size: 0.95rem;
+}
+
+.ef-loading-track {
+  width: min(220px, 65vw);
+  height: 7px;
+  margin-top: 24px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8e8e8;
+}
+
+.ef-loading-track span {
+  display: block;
+  width: 38%;
+  height: 100%;
+  border-radius: inherit;
+  background: #F2B544;
+  animation: ef-loading-progress 1.5s ease-in-out infinite;
+}
+
+.ef-loading-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes ef-chef-bob {
+  0%, 100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+@keyframes ef-chef-wave {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+
+  35%, 65% {
+    transform: rotate(-13deg);
+  }
+}
+
+@keyframes ef-loading-progress {
+  0% {
+    transform: translateX(-115%);
+  }
+
+  100% {
+    transform: translateX(275%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ef-chef,
+  .ef-chef-wave,
+  .ef-loading-track span {
+    animation: none !important;
+  }
+
+  .ef-loading-track span {
+    width: 100%;
+  }
+}

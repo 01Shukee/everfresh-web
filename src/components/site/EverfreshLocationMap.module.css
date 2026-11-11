@@ -1,0 +1,232 @@
+
+.card {
+  width: 100%;
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid #e8e5dc;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 8px 28px rgba(20, 50, 25, 0.06);
+}
+
+.heading {
+  margin-bottom: 18px;
+}
+
+.eyebrow {
+  display: block;
+  margin-bottom: 7px;
+  color: #b77b00;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.title {
+  margin: 0;
+  color: #1b6b28;
+  font-size: clamp(1.25rem, 3vw, 1.7rem);
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.description {
+  margin: 7px 0 0;
+  color: #666;
+  font-size: 0.92rem;
+}
+
+.mapFrame,
+.largeMap {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 13px;
+  background: #f0eee8;
+}
+
+.mapFrame {
+  height: 280px;
+}
+
+.mapFrame iframe,
+.largeMap iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.actions,
+.modalActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 17px;
+}
+
+.expandButton,
+.directionsButton,
+.closeTextButton {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 750;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.expandButton {
+  border: 1px solid #1b6b28;
+  color: #1b6b28;
+  background: #fff;
+}
+
+.expandButton:hover {
+  color: #fff;
+  background: #1b6b28;
+}
+
+.directionsButton {
+  border: 1px solid #1b6b28;
+  color: #fff;
+  background: #1b6b28;
+}
+
+.directionsButton:hover {
+  background: #14551f;
+  transform: translateY(-1px);
+}
+
+.closeTextButton {
+  border: 1px solid #ddd;
+  color: #333;
+  background: #fff;
+}
+
+.closeTextButton:hover {
+  background: #f5f5f5;
+}
+
+.compact {
+  padding: 18px;
+  box-shadow: none;
+}
+
+.compact .mapFrame {
+  height: 190px;
+}
+
+.compact .heading {
+  margin-bottom: 13px;
+}
+
+.overlay {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(10, 20, 12, 0.76);
+}
+
+.modal {
+  width: min(1050px, 100%);
+  max-height: 92vh;
+  overflow: auto;
+  padding: clamp(16px, 3vw, 28px);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.3);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.closeButton {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #e5e5e5;
+  border-radius: 50%;
+  color: #1b6b28;
+  background: #fff;
+  font-size: 1.8rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.closeButton:hover {
+  background: #f5f5f5;
+}
+
+.largeMap {
+  height: min(62vh, 620px);
+  min-height: 300px;
+}
+
+.modalActions {
+  justify-content: flex-end;
+}
+
+@media (max-width: 600px) {
+  .card {
+    padding: 17px;
+  }
+
+  .mapFrame {
+    height: 230px;
+  }
+
+  .actions {
+    align-items: stretch;
+  }
+
+  .actions > * {
+    flex: 1 1 140px;
+  }
+
+  .overlay {
+    padding: 10px;
+  }
+
+  .modal {
+    max-height: 96vh;
+    border-radius: 14px;
+  }
+
+  .largeMap {
+    height: 58vh;
+    min-height: 260px;
+  }
+
+  .modalActions {
+    justify-content: stretch;
+  }
+
+  .modalActions > * {
+    flex: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .expandButton,
+  .directionsButton,
+  .closeTextButton {
+    transition: none;
+  }
+}

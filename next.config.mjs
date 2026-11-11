@@ -1,6 +1,7 @@
 const prod = process.env.NODE_ENV === "production";
 // Content-Security-Policy is enforced in production only (dev tooling needs eval). Inline styles/scripts are allowed because Next injects them.
-const csp = ["default-src 'self'", "script-src 'self' 'unsafe-inline'", "style-src 'self' 'unsafe-inline'", "img-src 'self' data: https:", "font-src 'self' data:", "media-src 'self' https:", "connect-src 'self' https://vercel.com https://*.blob.vercel-storage.com", "frame-ancestors 'none'", "base-uri 'self'", "form-action 'self'", "object-src 'none'"].join("; ");
+
+const csp = ["default-src 'self'", "script-src 'self' 'unsafe-inline'", "style-src 'self' 'unsafe-inline'", "img-src 'self' data: https:", "font-src 'self' data:", "media-src 'self' https:", "connect-src 'self' https://vercel.com https://*.blob.vercel-storage.com", "frame-src https://www.openstreetmap.org", "frame-ancestors 'none'", "base-uri 'self'", "form-action 'self'", "object-src 'none'"].join("; ");
 const headers = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },

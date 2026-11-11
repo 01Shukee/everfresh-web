@@ -2,6 +2,7 @@ import Link from "next/link";
 import { nav, showPlaceholders } from "@/config/site";
 import { normaliseWhatsAppNumber } from "@/server/catering/whatsapp";
 import type { SiteSettings } from "@/server/site/settings";
+import { EverfreshLocationMap } from "@/components/site/EverfreshLocationMap";
 
 /** Every detail comes from the saved business settings (Admin > Website > Business and contact) or the site's own pages. A detail that has not been supplied is simply left out, never invented. */
 export function SiteFooter({ s, whatsapp }: { s: Pick<SiteSettings, "business" | "contact" | "brand">; whatsapp?: string | null }) {
@@ -41,6 +42,9 @@ export function SiteFooter({ s, whatsapp }: { s: Pick<SiteSettings, "business" |
             {c.hours.length > 0 && <span className="line"><span className="k">Opening hours</span>{c.hours.map((h) => <span key={h} className="block">{h}</span>)}</span>}
             {c.social.length > 0 && <span className="line"><span className="k">Follow us</span><span className="fsocial">{c.social.map((x) => <a key={x.url} href={x.url} target="_blank" rel="noopener noreferrer">{x.label}</a>)}</span></span>}
           </address>
+        </div>
+                <div className="foot-map">
+          <EverfreshLocationMap compact />
         </div>
         <div className="signoff">
           <span className="tagline serif">{s.business.tagline}</span>

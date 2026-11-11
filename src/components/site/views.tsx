@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Tbc } from "@/components/voc/Bits";
 import type { SiteSettings } from "@/server/site/settings";
 import { ContactForm } from "./ContactForm";
+import { EverfreshLocationMap } from "./EverfreshLocationMap";
 
 const Block = ({ title, text, href, cta }: { title: string; text: string | null; href: string; cta: string }) => (
   <article className="abox"><h3 className="serif">{title}</h3><p>{text ?? <Tbc what={`${title} information`} />}</p><Button href={href} tone="ghost" small>{cta}</Button></article>);
@@ -52,6 +53,11 @@ export function ContactView({ s, whatsapp }: { s: SiteSettings; whatsapp: string
         </div>
         <div><h2 className="serif green">Send us a message</h2><ContactForm /></div>
       </div></section>
+            <section className="sec white" aria-label="Our location">
+        <div className="wrap">
+          <EverfreshLocationMap />
+        </div>
+      </section>
       {faqs.length > 0 && <section className="sec white" aria-labelledby="cf"><div className="wrap"><span className="lab green">FAQs</span><h2 id="cf" className="serif ital2">Common questions.</h2><div className="faqs">{faqs.map((f) => <details key={f.id}><summary className="serif">{f.q}</summary><p className="prewrap">{f.a}</p></details>)}</div></div></section>}
     </>
   );
