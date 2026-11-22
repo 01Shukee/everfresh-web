@@ -117,12 +117,7 @@ test("details validation: required vs optional, dob, emergency contact", () => {
 
   const e = (o: object) => (validateDetails(o, T0) as any).fieldErrors ?? {};
 
-  assert.deepEqual(Object.keys(e({})).sort(), [
-    "address",
-    "email",
-    "fullName",
-    "phone",
-  ]);
+  assert.deepEqual(Object.keys(e({})).sort(), ["email", "fullName", "phone"]);
 
   assert.ok(e(details({ dob: "2999-01-01" })).dob);
   assert.ok(e(details({ dob: "garbage" })).dob);

@@ -22,7 +22,7 @@ export function validateDetails(raw: unknown, now: Date): { ok: true; value: App
   const fullName = clean(r.fullName, 80).replace(/\s+/g, " "); if (fullName.length < 2) e.fullName = "Enter your full name.";
   const phone = normalisePhone(r.phone); if (!phone) e.phone = "Enter a valid Nigerian mobile number, for example 0803 123 4567.";
   const email = clean(r.email, 120).toLowerCase(); if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) e.email = "Enter a valid email address.";
-  const address = clean(r.address, 250); if (address.length < 10) e.address = "Enter your full residential address (at least 10 characters).";
+  const address = clean(r.address, 250); if (address && address.length < 10) e.address = "If you give an address, enter the full address (at least 10 characters).";
   let dob: string | null = null; const dobRaw = clean(r.dob, 10);
   if (dobRaw) { const d = new Date(dobRaw + "T00:00:00Z"); if (!/^\d{4}-\d{2}-\d{2}$/.test(dobRaw) || Number.isNaN(d.getTime()) || d > now || now.getUTCFullYear() - d.getUTCFullYear() > 100) e.dob = "Enter a valid date of birth."; else dob = dobRaw; }
   else if (f.dobRequired) e.dob = "Date of birth is required.";
