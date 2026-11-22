@@ -11,6 +11,7 @@ import { AdminTeam, AdminAccount } from "./AdminTeam";
 import { AdminFoodSettings } from "./AdminFoodSettings";
 import { UploadButton } from "./shared";
 import { can, type Role } from "@/lib/permissions";
+import "./admin-categories.css";
 
 type Tab = "orders" | "menu" | "categories" | "delivery" | "vip" | "vocational" | "catering" | "website" | "messages" | "team" | "account";
 const api = async (url: string, method = "GET", body?: unknown) => {
@@ -115,17 +116,58 @@ function MenuAdmin() {
 }
 
 function Categories() {
-  const [cats, setCats] = useState<Category[]>([]); const [name, setName] = useState(""); const [msg, setMsg] = useState("");
-  const load = useCallback(async () => { const r = await api("/api/admin/menu"); if (r.ok) setCats(r.json.categories); }, []);
+  const [cats, setCats] = useState<Category[]>([]); const [items, setItems] = useState<MenuItem[]>([]); const [name, setName] = useState(""); const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
+  const load = useCallback(async () => {
+    const r = await api("/api/admin/menu");
+    if (r.ok) { setCats([...(r.json.categories as Category[])].sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name))); setItems(r.json.items); }
+  }, []);
   useEffect(() => { load(); }, [load]);
-  const add = async (e: React.FormEvent) => { e.preventDefault(); const r = await api("/api/admin/categories", "POST", { name, sort: cats.length }); setMsg(r.ok ? `${name} added.` : r.json.error); if (r.ok) setName(""); load(); };
+  const dishes = (id: string) => items.filter((i) => i.categoryId === id && i.active).length;
+  const add = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const r = await api("/api/admin/categories", "POST", { name, sort: Math.max(0, ...cats.map((c) => c.sort)) + 1 });
+    setMsg(r.ok ? `${name} added at the end of the menu. Use Up or Top to move it.` : r.json.error); if (r.ok) setName(""); load();
+  };
+  const setActive = async (c: Category, active: boolean) => {
+    setCats((prev) => prev.map((x) => (x.id === c.id ? { ...x, active } : x)));
+    await api(`/api/admin/categories/${c.id}`, "PUT", { name: c.name, sort: c.sort, active }); load();
+  };
+  /** Moves one category to a new position, renumbers the list 1..n and saves only the categories whose number changed. */
+  const move = async (from: number, to: number) => {
+    if (busy || from === to || to < 0 || to >= cats.length) return;
+    const next = [...cats]; const [moved] = next.splice(from, 1); next.splice(to, 0, moved);
+    const numbered = next.map((c, i) => ({ ...c, sort: i + 1 }));
+    const changed = numbered.filter((c) => cats.find((o) => o.id === c.id)?.sort !== c.sort);
+    setCats(numbered); setBusy(true); setMsg("");
+    const results = await Promise.all(changed.map((c) => api(`/api/admin/categories/${c.id}`, "PUT", { name: c.name, sort: c.sort, active: c.active })));
+    const bad = results.find((r) => !r.ok);
+    setMsg(bad ? (bad.json.error ?? "The new order could not be saved. Please try again.") : `${moved.name} is now number ${to + 1} on the menu.`);
+    setBusy(false); load();
+  };
   return (
-    <section aria-labelledby="ch"><h2 id="ch" className="serif">Categories</h2>{msg && <p className="alert" role="status">{msg}</p>}
+    <section aria-labelledby="ch"><h2 id="ch" className="serif">Categories</h2>
+      <p className="hint">The order here is the order customers see on the menu page. The first four enabled categories that have dishes also appear as buttons on the home page.</p>
+      {msg && <p className="alert" role="status">{msg}</p>}
       <form className="inl-form" onSubmit={add}><div className="field"><label htmlFor="cn">New category name</label><input id="cn" value={name} onChange={(e) => setName(e.target.value)} required /></div><button className="pill sm">Add category</button></form>
-      {cats.length === 0 ? <div className="empty"><p className="serif empty-title">No categories yet.</p></div> : <ul className="catlist">{cats.map((c) => (
-        <li key={c.id}><b>{c.name}</b><label className="check"><input type="checkbox" checked={c.active} onChange={async (e) => { setCats((prev) => prev.map((x) => (x.id === c.id ? { ...x, active: e.target.checked } : x))); await api(`/api/admin/categories/${c.id}`, "PUT", { ...c, active: e.target.checked }); load(); }} /> Enabled</label>
-          <button className="linkbtn" onClick={async () => { const n = prompt("Rename category", c.name); if (n) { const r = await api(`/api/admin/categories/${c.id}`, "PUT", { ...c, name: n }); setMsg(r.ok ? "Renamed." : r.json.error); load(); } }}>Rename</button>
-          <button className="linkbtn" onClick={async () => { if (confirm(`Delete ${c.name}?`)) { const r = await api(`/api/admin/categories/${c.id}`, "DELETE"); setMsg(r.ok ? "Deleted." : r.json.error); load(); } }}>Delete</button></li>))}</ul>}
+      {cats.length === 0 ? <div className="empty"><p className="serif empty-title">No categories yet.</p></div> : (
+        <ol className="catlist" aria-label="Menu categories in display order">{cats.map((c, i) => {
+          const n = dishes(c.id); const hiddenWithDishes = !c.active && n > 0;
+          return (
+            <li key={c.id} className={hiddenWithDishes ? "cl-warn" : ""}>
+              <span className="cl-pos" aria-hidden="true">{i + 1}</span>
+              <span className="cl-name"><b>{c.name}</b>
+                <span className="small dim0">{n} dish{n === 1 ? "" : "es"}{!c.active ? ", hidden from customers" : ""}</span>
+                {hiddenWithDishes && <span className="err">Switched off, but it still has dishes. Customers cannot see them.</span>}</span>
+              <span className="cl-move" role="group" aria-label={`Move ${c.name}`}>
+                <button type="button" onClick={() => move(i, 0)} disabled={busy || i === 0} aria-label={`Move ${c.name} to the top`}>Top</button>
+                <button type="button" onClick={() => move(i, i - 1)} disabled={busy || i === 0} aria-label={`Move ${c.name} up one place`}><span aria-hidden="true">&uarr;</span> Up</button>
+                <button type="button" onClick={() => move(i, i + 1)} disabled={busy || i === cats.length - 1} aria-label={`Move ${c.name} down one place`}><span aria-hidden="true">&darr;</span> Down</button>
+              </span>
+              <label className="check"><input type="checkbox" checked={c.active} onChange={(e) => setActive(c, e.target.checked)} /> Enabled</label>
+              <button className="linkbtn" onClick={async () => { const nm = prompt("Rename category", c.name); if (nm) { const r = await api(`/api/admin/categories/${c.id}`, "PUT", { name: nm, sort: c.sort, active: c.active }); setMsg(r.ok ? "Renamed." : r.json.error); load(); } }}>Rename</button>
+              <button className="linkbtn" onClick={async () => { if (confirm(`Delete ${c.name}?`)) { const r = await api(`/api/admin/categories/${c.id}`, "DELETE"); setMsg(r.ok ? "Deleted." : r.json.error); load(); } }}>Delete</button>
+            </li>);
+        })}</ol>)}
     </section>
   );
 }

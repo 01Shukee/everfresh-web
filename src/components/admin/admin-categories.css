@@ -1,0 +1,12 @@
+/* Category list with reorder buttons (Admin > Categories). Uses the Everfresh tokens from globals.css. */
+.admin .catlist { max-width: 780px; }
+.admin .catlist li { flex-wrap: wrap; row-gap: 8px; }
+.admin .catlist .cl-warn { border-color: var(--ef-red); background: #fff3f3; }
+.admin .catlist .cl-pos { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--ef-amber); color: var(--ef-ink); font-weight: 800; font-size: 14px; }
+.admin .catlist .cl-name { flex: 1 1 180px; min-width: 0; display: grid; gap: 2px; overflow-wrap: anywhere; }
+.admin .catlist .cl-name b { margin-right: 0; }
+.admin .catlist .cl-move { display: inline-flex; gap: 6px; flex: 0 0 auto; }
+.admin .catlist .cl-move button { min-width: 52px; min-height: 40px; padding: 0 12px; border: 2px solid var(--ef-green-deep); border-radius: var(--pill); background: transparent; color: var(--ef-green-deep); font-weight: 800; font-size: 14px; }
+.admin .catlist .cl-move button:hover:not(:disabled) { background: var(--ef-green-deep); color: #fff; }
+.admin .catlist .cl-move button:disabled { opacity: .35; cursor: not-allowed; }
+@media (max-width: 520px) { .admin .catlist .cl-move button { min-height: 44px; } }
