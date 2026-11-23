@@ -14,7 +14,7 @@ export const vocConfig = {
   // N5,000 enquiry (application-form) fee: non-refundable. Paying it unlocks the curriculum. It is deducted from the school fees once the applicant is accepted.
   applicationFee: { kobo: 500_000, nonRefundable: true, creditedToTuition: true },
   paymentTerms: null as string | null, // PLACEHOLDER: institution's payment terms, printed on invoices when set
-  nextSteps: "Wait for an email from us confirming your acceptance. Your school fees can be paid only after you are accepted." as string | null,
+  nextSteps: "Complete your admission form on your application page. Wait for an email from us confirming your acceptance. School fees can be paid only after you are accepted." as string | null,
   // Required/optional fields. Only name, phone, email and address are required until the institution says otherwise.
   form: { dobRequired: false, educationRequired: false, emergencyContactRequired: false },
 };

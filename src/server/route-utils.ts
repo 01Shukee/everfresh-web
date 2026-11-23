@@ -3,8 +3,11 @@ import { env } from "./runtime";
 
 export const send = (r: ApiResult) => Response.json(r.body, { status: r.status, headers: { "Cache-Control": "no-store" } });
 import type { ApiOut } from "./voc/api";
-export const sendOut = (o: ApiOut) => ("pdf" in o ? new Response(Buffer.from(o.pdf), { status: 200, headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${o.filename}"`, "Cache-Control": "private, no-store" } }) : send(o));
-export async function readJson(req: Request, maxBytes = 65_536): Promise<unknown> {
+export const sendOut = (o: ApiOut) =>
+  "pdf" in o ? new Response(Buffer.from(o.pdf), { status: 200, headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${o.filename}"`, "Cache-Control": "private, no-store" } })
+  : "file" in o ? new Response(Buffer.from(o.file), { status: 200, headers: { "Content-Type": o.contentType, "Content-Disposition": `inline; filename="${o.filename}"`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } })
+  : send(o);
+  export async function readJson(req: Request, maxBytes = 65_536): Promise<unknown> {
   const t = await req.text(); if (t.length > maxBytes) throw new Error("too large");
   try { return JSON.parse(t); } catch { return null; }
 }

@@ -3,8 +3,9 @@ import { decimalToKobo } from "../lib/money";
 import type { Repo } from "./repo";
 import type { Order, PaymentAttempt } from "./types";
 import { handleVocEvent, vocClaims } from "./voc/payments";
+import type { Application, Invoice } from "./voc/model";
 import { baseRef } from "../lib/refs";
-import { mailOrderPaid, mailRefund } from "./notify";
+import { mailOrderPaid, mailPaymentReview, mailRefund, notifyStaff } from "./notify";
 
 /** Which record this event changes; all events for one order/application/invoice are processed one at a time. */
 async function lockKeyFor(ev: { id: string; data: Record<string, any> }, repo: Repo): Promise<string> {
@@ -34,6 +35,17 @@ export function verifyBachsSignature(rawBody: string, headers: { get(n: string):
 export interface WebhookResult { status: number; body: string }
 const ok = (b = "ok"): WebhookResult => ({ status: 200, body: b });
 
+/** An event type we do not act on (for example a crypto payment event): record it on the matching order, application or invoice so staff can see exactly what Bachs sent, and alert staff if it looks like a payment. */
+async function noteUnhandled(repo: Repo, ev: { id: string; type: string; data: Record<string, any> }, now: string) {
+  const d = ev.data ?? {}; const text = `Bachs event "${ev.type}" received and not acted on (status ${d.status ?? "?"}, ${d.currency ?? "?"} ${d.amount ?? "?"}).`;
+  console.log("[bachs webhook] ignored event type:", ev.type, JSON.stringify({ reference: d.reference, status: d.status, currency: d.currency, amount: d.amount }));
+  const r = typeof d.reference === "string" ? d.reference : ""; let where = "";
+  if (r.startsWith("VA-")) { const a = await repo.docGet<Application>("app", baseRef(r)); if (a) { a.notes.push(`${now} ${text}`); await repo.docPut("app", a.ref, a); where = a.ref; } }
+  else if (r.startsWith("VI-")) { const i = await repo.docGet<Invoice>("invoice", baseRef(r)); if (i) { i.notes.push(`${now} ${text}`); await repo.docPut("invoice", i.number, i); where = i.number; } }
+  else if (r) { const o = await repo.findOrderByReference(r); if (o) { o.notes.push(`${now} ${text}`); await repo.saveOrder(o); where = o.orderNumber; } }
+  if (where && /collection|payment|crypto|paid|succe|settle/i.test(ev.type)) await notifyStaff(repo, `Bachs event not handled: ${ev.type}`, `${text}\nRecord: ${where}\nCheck the payment in Bachs. If the money arrived, confirm it in the admin.`);
+}
+
 /** Webhooks are the only thing that can mark an order paid. Redirects never do. */
 export async function handleBachsWebhook(raw: string, headers: { get(n: string): string | null }, deps: { repo: Repo; secrets: string[]; now?: () => Date }): Promise<WebhookResult> {
   if (!verifyBachsSignature(raw, headers, deps.secrets, (deps.now?.() ?? new Date()).getTime())) return { status: 400, body: "invalid signature" };
@@ -52,7 +64,7 @@ export async function handleBachsWebhook(raw: string, headers: { get(n: string):
   let paidNow = false; let refundKobo: number | null | undefined;
 
   const known = ["collection.succeeded", "collection.failed", "collection.underpaid", "checkout.expired", "refund.paid"];
-  if (!known.includes(ev.type)) return ok("ignored");
+  if (!known.includes(ev.type)) { await deps.repo.withLock(await lockKeyFor(ev, deps.repo), () => noteUnhandled(deps.repo, ev, now)).catch(() => {}); return ok("ignored"); }
   const lockKey = await lockKeyFor(ev, deps.repo);
   return deps.repo.withLock(lockKey, async (): Promise<WebhookResult> => {
   const isNew = await deps.repo.markEventSeen(ev.id, ev.type);
@@ -62,7 +74,7 @@ export async function handleBachsWebhook(raw: string, headers: { get(n: string):
   if (await vocClaims(ev, deps.repo)) return await handleVocEvent(ev, deps.repo, deps.now?.() ?? new Date());
   const hit = await find();
   if (!hit) return ok("unknown reference");
-  const { order, attempt } = hit;
+  const { order, attempt } = hit; const beforePay = order.paymentStatus;
 
   switch (ev.type) {
     case "collection.succeeded": {
@@ -106,6 +118,7 @@ export async function handleBachsWebhook(raw: string, headers: { get(n: string):
   order.updatedAt = now;
   await deps.repo.saveOrder(order);
   if (paidNow) await mailOrderPaid(deps.repo, order);
+  if (beforePay !== "needs_review" && order.paymentStatus === "needs_review") await mailPaymentReview(deps.repo, { to: order.customer.email, name: order.customer.name, ref: order.orderNumber, what: "order", detail: order.notes[order.notes.length - 1] ?? "", path: `/order/${order.orderNumber}/${order.publicToken}` });
   if (refundKobo !== undefined) await mailRefund(deps.repo, { kind: "order", to: order.customer.email, name: order.customer.name, ref: order.orderNumber, what: "order", amountKobo: refundKobo, refundId: typeof d.refund_id === "string" ? d.refund_id : null, totalKobo: order.totalKobo, path: `/order/${order.orderNumber}/${order.publicToken}` });
   return ok();
   } catch (e) { await deps.repo.unmarkEvent(ev.id).catch(() => {}); throw e; }

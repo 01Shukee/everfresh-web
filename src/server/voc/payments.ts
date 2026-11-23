@@ -7,7 +7,7 @@ import { getContent } from "./applications";
 import { issueProgrammeInvoice } from "./autoinvoice";
 import { mailFeeReceived } from "./emails";
 import { getInstitute } from "./institute";
-import { mailRefund } from "../notify";
+import { mailRefund, mailPaymentReview } from "../notify";
 
 export const isVocRef = (r: unknown): r is string => typeof r === "string" && (r.startsWith("VA-") || r.startsWith("VI-"));
 import { baseRef } from "../../lib/refs";
@@ -45,7 +45,7 @@ export async function handleVocEvent(ev: { type: string; data: Record<string, an
     const app = await repo.docGet<Application>("app", appRefOf(ref)); if (!app) return ok("unknown reference");
     const attempt = app.payment.attempts.find((a) => a.reference === ref) ?? app.payment.attempts.find((a) => a.chargeId && a.chargeId === d.charge_id);
     if (!attempt) return ok("unknown reference");
-    const latest = app.payment.attempts[app.payment.attempts.length - 1]; const note = (m: string) => app.notes.push(`${ts} ${m}`); let firstPaid = false; let appRefunded = false; let appRefundKobo: number | null = null;
+    const latest = app.payment.attempts[app.payment.attempts.length - 1]; const note = (m: string) => app.notes.push(`${ts} ${m}`); const before = app.payment.status; let firstPaid = false; let appRefunded = false; let appRefundKobo: number | null = null;
     switch (ev.type) {
       case "collection.succeeded": {
         attempt.chargeId = typeof d.charge_id === "string" ? d.charge_id : attempt.chargeId;
@@ -73,10 +73,12 @@ export async function handleVocEvent(ev: { type: string; data: Record<string, an
       case "refund.paid": app.payment.status = "refunded"; note(`Refund ${d.refund_id ?? ""} paid. (Application-form fee is non-refundable; this was an exceptional refund.)`); appRefunded = true; appRefundKobo = decimalToKobo(d.refunded_amount); break;
       default: return ok("ignored");
     }
-    app.updatedAt = ts; await repo.docPut("app", app.ref, app);
+        if (before !== "needs_review" && app.payment.status === "needs_review") await mailPaymentReview(repo, { to: app.details.email, name: app.details.fullName, ref: app.ref, what: "application-form fee", detail: app.notes[app.notes.length - 1] ?? "", path: `/application/${app.ref}/${app.token}` });
     if (appRefunded) await mailRefund(repo, { kind: "application", to: app.details.email, name: app.details.fullName, ref: app.ref, what: "application-form fee", amountKobo: appRefundKobo, refundId, totalKobo: app.feeKobo, path: `/application/${app.ref}/${app.token}` });
+    // Save payment state before follow-up work. A failed write must throw so
+    // the webhook can release its event marker and the provider can retry.
+    await repo.docPut("app", app.ref, app);
     if (firstPaid) {
-      // The payment is already saved. Neither step below can undo it: a failure is logged on the application and can be retried by staff.
       // The school-fees invoice is NOT raised here: it is raised when staff accept the applicant.
       let inv: Invoice | null = null;
       try { inv = await issueProgrammeInvoice(repo, now, app); } catch (e) { app.notes.push(`${ts} The programme invoice could not be raised automatically (${(e as Error).message}). Raise it by hand in the admin.`); await repo.docPut("app", app.ref, app); }
@@ -87,7 +89,7 @@ export async function handleVocEvent(ev: { type: string; data: Record<string, an
 
   const num = invNumberOf(ref); const inv = await repo.docGet<Invoice>("invoice", num); if (!inv) return ok("unknown reference");
   const attempt = inv.attempts.find((a) => a.reference === ref) ?? inv.attempts.find((a) => a.chargeId && a.chargeId === d.charge_id); if (!attempt) return ok("unknown reference");
-  const latest = inv.attempts[inv.attempts.length - 1]; const note = (m: string) => inv.notes.push(`${ts} ${m}`); let invRefunded = false; let invRefundKobo: number | null = null;
+  const latest = inv.attempts[inv.attempts.length - 1]; const note = (m: string) => inv.notes.push(`${ts} ${m}`); const beforeA = attempt.status; let invRefunded = false; let invRefundKobo: number | null = null;
   switch (ev.type) {
     case "collection.succeeded": {
       attempt.chargeId = typeof d.charge_id === "string" ? d.charge_id : attempt.chargeId;
@@ -109,7 +111,10 @@ export async function handleVocEvent(ev: { type: string; data: Record<string, an
     case "refund.paid": note(`Refund ${d.refund_id ?? ""} paid (${d.refunded_amount ?? "?"}). Adjust the invoice manually if needed.`); invRefunded = true; invRefundKobo = decimalToKobo(d.refunded_amount); break;
     default: return ok("ignored");
   }
-  void latest; await repo.docPut("invoice", inv.number, inv);
+    if (beforeA !== "needs_review" && attempt.status === "needs_review") { const a0 = await repo.docGet<Application>("app", inv.appRef); if (a0) await mailPaymentReview(repo, { to: a0.details.email, name: a0.details.fullName, ref: inv.number, what: "school fees payment", detail: inv.notes[inv.notes.length - 1] ?? "", path: `/application/${a0.ref}/${a0.token}` }); }
+  // Save invoice payment state while still inside the webhook's invoice lock.
+  // A failed write must throw so the event can be retried safely.
+  await repo.docPut("invoice", inv.number, inv);
   if (invRefunded) {
     const a = await repo.docGet<Application>("app", inv.appRef);
     if (a) await mailRefund(repo, { kind: "application", to: a.details.email, name: a.details.fullName, ref: inv.number, what: "school fees payment", amountKobo: invRefundKobo, refundId, totalKobo: attempt.amountKobo, path: `/application/${a.ref}/${a.token}` });
