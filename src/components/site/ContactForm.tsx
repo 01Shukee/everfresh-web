@@ -16,7 +16,7 @@ export function ContactForm() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); if (busy) return; setBusy(true); setErrs({}); setMsg("");
     try { const r = await fetch("/api/contact", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...f, idempotencyKey: keyFor(JSON.stringify(f)) }) }); const j = await r.json();
-      if (r.ok) { setDone(j.ref ?? ""); return; } setErrs(j.fieldErrors ?? {}); setMsg(j.error ?? "Something went wrong."); setDup(j.code === "DUPLICATE_APPLICATION"); setBusy(false); setTick((n) => n + 1);
+      if (r.ok) { setDone(j.ref ?? ""); return; } setErrs(j.fieldErrors ?? {}); setMsg(j.error ?? "Something went wrong."); setBusy(false); setTick((n) => n + 1);
     } catch { setMsg("We couldn't reach the server. Your message was not sent. Please try again."); setBusy(false); }
   };
   if (done !== null) return <div className="paybox ok" role="status"><b className="serif">Thank you. Your message is saved.</b><span>{done ? `Reference ${done}. ` : ""}We will use the phone number or email you gave to reply.</span></div>;
