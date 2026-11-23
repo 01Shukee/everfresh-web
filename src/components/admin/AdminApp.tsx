@@ -1,7 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { formatNaira, decimalToKobo } from "@/lib/money";
-import { parseAddOns, parseVariants, serializeAddOns, serializeVariants } from "@/lib/menu-text";
+import { formatNaira } from "@/lib/money";
 import type { Category, MenuItem, Order } from "@/server/types";
 import { AdminVoc } from "./AdminVoc";
 import { AdminVip } from "./AdminVip";
@@ -9,7 +8,7 @@ import { AdminCatering } from "./AdminCatering";
 import { AdminSite, AdminInbox } from "./AdminSite";
 import { AdminTeam, AdminAccount } from "./AdminTeam";
 import { AdminFoodSettings } from "./AdminFoodSettings";
-import { UploadButton } from "./shared";
+import { AdminMenu } from "./AdminMenu";
 import { can, type Role } from "@/lib/permissions";
 import "./admin-categories.css";
 
@@ -37,7 +36,7 @@ export function AdminApp({ me }: { me: Me }) {
       <div className="admin-head"><h1 className="serif">Admin</h1>
         <nav className="admin-tabs" aria-label="Admin sections">{tabs.map((t) => <button key={t.id} className={tab === t.id ? "on" : ""} aria-pressed={tab === t.id} disabled={locked && t.id !== "account"} onClick={(e) => { setTab(t.id); e.currentTarget.scrollIntoView?.({ inline: "center", block: "nearest", behavior: "smooth" }); }}>{t.label}</button>)}</nav>
         <span className="small who">{me.name} · {me.role.replace(/_/g, " ")}</span><button className="linkbtn" onClick={async () => { await api("/api/admin/logout", "POST"); location.reload(); }}>Sign out</button></div>
-      {tab === "orders" && <Orders />}{tab === "menu" && <MenuAdmin />}{tab === "categories" && <Categories />}{tab === "delivery" && <AdminFoodSettings />}{tab === "vip" && <AdminVip />}{tab === "vocational" && <AdminVoc />}{tab === "catering" && <AdminCatering />}
+      {tab === "orders" && <Orders />}{tab === "menu" && <AdminMenu />}{tab === "categories" && <Categories />}{tab === "delivery" && <AdminFoodSettings />}{tab === "vip" && <AdminVip />}{tab === "vocational" && <AdminVoc />}{tab === "catering" && <AdminCatering />}
       {tab === "website" && <AdminSite role={me.role} />}{tab === "messages" && <AdminInbox />}{tab === "team" && <AdminTeam />}{tab === "account" && <AdminAccount forced={me.mustChangePassword} needs2fa={!!me.needs2fa} enabled={!!me.twoFactor} />}
     </div>
   );
@@ -72,45 +71,6 @@ function Orders() {
                 <div className="acts">{next(o).map((s) => <button key={s} className={`pill sm ${s === "cancelled" ? "ghost" : ""}`} onClick={() => move(o, s)}>{s === "cancelled" ? "Cancel order" : `Mark ${label(s)}`}</button>)}</div></div>
             </div>}
           </li>))}</ul>)}
-    </section>
-  );
-}
-
-const blank = { name: "", categoryId: "", description: "", price: "", sizes: "", addons: "", tags: "", imageUrl: "", imageAlt: "", active: true, available: true };
-function MenuAdmin() {
-  const [items, setItems] = useState<MenuItem[]>([]); const [cats, setCats] = useState<Category[]>([]); const [f, setF] = useState(blank); const [editing, setEditing] = useState<string | null>(null);
-  const [err, setErr] = useState(""); const [msg, setMsg] = useState(""); const [form, setForm] = useState(false);
-  const load = useCallback(async () => { const r = await api("/api/admin/menu"); if (r.ok) { setItems(r.json.items); setCats(r.json.categories); } }, []);
-  useEffect(() => { load(); }, [load]);
-  const edit = (i: MenuItem) => { setEditing(i.id); setForm(true); setErr(""); setF({ name: i.name, categoryId: i.categoryId, description: i.description, price: i.variants.length ? "" : String(i.basePriceKobo / 100), sizes: serializeVariants(i.variants), addons: serializeAddOns(i.addOnGroups), tags: i.tags.join(", "), imageUrl: i.imageUrl ?? "", imageAlt: i.imageAlt, active: i.active, available: i.available }); };
-  const save = async (e: React.FormEvent) => {
-    e.preventDefault(); setErr(""); const v = parseVariants(f.sizes); if (!v.ok) return setErr(v.error); const a = parseAddOns(f.addons); if (!a.ok) return setErr(a.error);
-    const kobo = f.price ? decimalToKobo(f.price.trim()) : 0; if (kobo === null) return setErr("Enter the price in naira, for example 2500 or 2500.50.");
-    const body = { name: f.name, categoryId: f.categoryId, description: f.description, basePriceKobo: kobo, variants: v.value, addOnGroups: a.value, tags: f.tags.split(",").map((t) => t.trim()).filter(Boolean), imageUrl: f.imageUrl || null, imageAlt: f.imageAlt, active: f.active, available: f.available };
-    const r = await api(editing ? `/api/admin/menu/${editing}` : "/api/admin/menu", editing ? "PUT" : "POST", body);
-    if (!r.ok) return setErr(r.json.error ?? "Could not save."); setMsg(`${f.name} saved.`); setForm(false); setEditing(null); setF(blank); load();
-  };
-  const patch = async (i: MenuItem, changes: Partial<MenuItem>) => { setItems((prev) => prev.map((x) => (x.id === i.id ? { ...x, ...changes } : x))); const r = await api(`/api/admin/menu/${i.id}`, "PUT", { ...i, ...changes }); setMsg(r.ok ? `${i.name} updated.` : r.json.error); load(); };
-  return (
-    <section aria-labelledby="mh"><div className="bar"><h2 id="mh" className="serif">Menu items</h2><button className="pill sm" onClick={() => { setForm(true); setEditing(null); setF({ ...blank, categoryId: cats[0]?.id ?? "" }); setErr(""); }} disabled={cats.length === 0}>Add item</button></div>
-      {cats.length === 0 && <p className="hint">Create a category first.</p>}{msg && <p className="alert" role="status">{msg}</p>}
-      {form && <form className="adminform" onSubmit={save}><h3 className="serif">{editing ? "Edit item" : "New item"}</h3>{err && <p className="alert" role="alert">{err}</p>}
-        <div className="grid-f"><div className="field"><label htmlFor="n">Name</label><input id="n" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required /></div>
-          <div className="field"><label htmlFor="c">Category</label><select id="c" value={f.categoryId} onChange={(e) => setF({ ...f, categoryId: e.target.value })} required>{cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-          <div className="field"><label htmlFor="p">Price (₦){f.sizes.trim() ? " (ignored when sizes are set)" : ""}</label><input id="p" inputMode="decimal" value={f.price} onChange={(e) => setF({ ...f, price: e.target.value })} /></div></div>
-        <div className="field"><label htmlFor="d">Description</label><textarea id="d" rows={2} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></div>
-        <div className="grid-f2"><div className="field"><label htmlFor="s">Portion sizes (one per line: Name | price)</label><textarea id="s" rows={4} placeholder="Small | 2000" value={f.sizes} onChange={(e) => setF({ ...f, sizes: e.target.value })} /></div>
-          <div className="field"><label htmlFor="a"># Add-on group | min | max, then - Option | price</label><textarea id="a" rows={4} placeholder={"# Extras | 0 | 2\n- Option | 300"} value={f.addons} onChange={(e) => setF({ ...f, addons: e.target.value })} /></div></div>
-        <div className="grid-f"><div className="field"><label htmlFor="t">Tags (comma separated)</label><input id="t" value={f.tags} onChange={(e) => setF({ ...f, tags: e.target.value })} /></div>
-          <div className="field"><label htmlFor="u">Photo path or URL</label><input id="u" value={f.imageUrl} onChange={(e) => setF({ ...f, imageUrl: e.target.value })} /><UploadButton onUploaded={(u) => setF({ ...f, imageUrl: u })} /></div>
-          <div className="field"><label htmlFor="al">Photo alt text</label><input id="al" value={f.imageAlt} onChange={(e) => setF({ ...f, imageAlt: e.target.value })} /></div></div>
-        <div className="checks"><label className="check"><input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} /> Enabled (visible to customers)</label><label className="check"><input type="checkbox" checked={f.available} onChange={(e) => setF({ ...f, available: e.target.checked })} /> Available (untick for sold out)</label></div>
-        <div className="acts"><button className="pill sm">Save item</button><button type="button" className="pill ghost sm" onClick={() => { setForm(false); setEditing(null); }}>Cancel</button></div></form>}
-      {items.length === 0 ? <div className="empty"><p className="serif empty-title">No menu items yet.</p></div> : (
-        <table className="atable"><thead><tr><th>Item</th><th>Category</th><th>Price</th><th>Enabled</th><th>Available</th><th><span className="sr">Actions</span></th></tr></thead><tbody>{items.map((i) => (
-          <tr key={i.id}><td><b>{i.name}</b></td><td>{cats.find((c) => c.id === i.categoryId)?.name}</td><td className="tab">{i.variants.length ? `from ${formatNaira(Math.min(...i.variants.map((v) => v.priceKobo)))}` : formatNaira(i.basePriceKobo)}</td>
-            <td><label className="check"><input type="checkbox" checked={i.active} onChange={(e) => patch(i, { active: e.target.checked })} aria-label={`${i.name} enabled`} /></label></td><td><label className="check"><input type="checkbox" checked={i.available} onChange={(e) => patch(i, { available: e.target.checked })} aria-label={`${i.name} available`} /></label></td>
-            <td className="acts"><button className="linkbtn" onClick={() => edit(i)}>Edit</button><button className="linkbtn" onClick={async () => { if (confirm(`Delete ${i.name}? Past orders keep their copy of it.`)) { await api(`/api/admin/menu/${i.id}`, "DELETE"); load(); } }}>Delete</button></td></tr>))}</tbody></table>)}
     </section>
   );
 }
