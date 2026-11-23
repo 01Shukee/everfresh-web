@@ -62,7 +62,7 @@ export function ApplyWizard({ options, initialVariant, resume, initial }: {
   const [d, setD] = useState<D>({ ...empty, ...(initial?.details as D | undefined) });
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(false); const [dup, setDup] = useState(false);
   const [draft, setDraft] = useState<{ ref: string; token: string } | null>(null);
   const [changing, setChanging] = useState(false);
   const snap = useRef<{ variant: string; picked: string[]; acc: Acc; cat: Cat } | null>(null);
@@ -124,7 +124,7 @@ export function ApplyWizard({ options, initialVariant, resume, initial }: {
         location.assign(`/application/${ref}/${token}`);
         return;
       }
-      setErrs(j.fieldErrors ?? {}); setMsg(j.error ?? "Something went wrong."); setBusy(false);
+      setErrs(j.fieldErrors ?? {}); setMsg(j.error ?? "Something went wrong."); setDup(j.code === "DUPLICATE_APPLICATION"); setBusy(false);
       setTimeout(() => document.getElementById("form-alert")?.focus(), 50);
     } catch {
       setMsg("We couldn't reach the server. Nothing was charged. Please try again."); setBusy(false);
@@ -266,7 +266,7 @@ export function ApplyWizard({ options, initialVariant, resume, initial }: {
           {msg && (
             <div id="form-alert" tabIndex={-1} className="alert" role="alert">
               {msg}
-              {(errs.courses || errs.course || errs.accommodation || errs.variantId) && <p className="ap-alert-link"><button type="button" className="linkbtn" onClick={startChange}>Go back and fix your choices</button></p>}
+              {dup && <p className="ap-alert-link"><Link href="/recover" className="linkbtn">Did not get the email? Send me the link again</Link></p>}{(errs.courses || errs.course || errs.accommodation || errs.variantId) && <p className="ap-alert-link"><button type="button" className="linkbtn" onClick={startChange}>Go back and fix your choices</button></p>}
             </div>
           )}
 

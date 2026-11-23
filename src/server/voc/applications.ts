@@ -5,7 +5,7 @@ import { GatewayError, type PaymentGateway } from "../gateway";
 import { UniqueViolation, type Repo } from "../repo";
 import { normalisePhone } from "../validation";
 import { getInstitute } from "./institute";
-import { mailRegistration } from "./emails";
+import { mailRegistration, mailResume } from "./emails";
 import { checkChoices } from "./pricing";
 import { emptyContent, invoiceState, invoiceTotals, type Application, type ApplicationDetails, type Invoice, type VariantContent, type VocAttempt } from "./model";
 
@@ -49,6 +49,15 @@ export async function invoicesFor(repo: Repo, ref: string): Promise<Invoice[]> {
   return (await repo.docList<Invoice>("invoice")).filter((i) => i.appRef === ref).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
+/** Emails the private link of an existing application to the address on file. Returns false when one was already sent in the last 10 minutes, so this cannot be used to flood a mailbox. */
+async function sendResumeLink(repo: Repo, app: Application): Promise<boolean> {
+  const key = `resume:${app.ref}`; const last = await repo.docGet<{ at: number }>("idx", key);
+  if (last && Date.now() - last.at < 10 * 60 * 1000) return false;
+  await repo.docPut("idx", key, { at: Date.now() });
+  try { await mailResume(repo, app, await getInstitute(repo)); } catch { /* the outbox retries */ }
+  return true;
+}
+
 const inflight = new Map<string, Promise<unknown>>();
 function once<T>(key: string, run: () => Promise<T>): Promise<T> { const e = inflight.get(key); if (e) return e as Promise<T>; const p = run().finally(() => inflight.delete(key)); inflight.set(key, p); return p; }
 
@@ -80,7 +89,11 @@ async function doCreate(deps: VocDeps, raw: unknown, key: string): Promise<Creat
   catch (e) {
     if (!(e instanceof UniqueViolation)) throw e;
     const ex = await repo.docGet<{ ref: string }>("idx", activeKey); const old = ex ? await getApp(repo, ex.ref) : null;
-    if (old && old.status !== "withdrawn") return fail(409, "DUPLICATE_APPLICATION", "An application for this programme already exists for this email address. Open the link you saved when you started it, or contact us.");
+    if (old && old.status !== "withdrawn") {
+      // Do not make the person hunt for their link: email it to the address on file (never shown on screen).
+      const sent = await sendResumeLink(repo, old);
+      return fail(409, "DUPLICATE_APPLICATION", `You already started an application for this programme with this email address. ${sent ? "We have just emailed you a link to continue it." : "We emailed you a link to continue it a few minutes ago."} Open that email and press "Open your application". Please check your spam folder too.`);
+    }
     await repo.docPut("idx", activeKey, { ref });
   }
   try { await repo.docCreate("idx", `appkey:${key}`, { ref }); }

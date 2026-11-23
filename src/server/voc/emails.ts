@@ -36,13 +36,13 @@ export function registrationMail(a: Application, c: VariantContent, inst: Instit
     (p.charges.length ? heading("Your fees") + money([...p.charges.map((l) => ({ label: l.label, amount: formatNaira(l.amountKobo) })), { label: "Total fees", amount: formatNaira(p.total), strong: true }, ...(p.credit ? [{ label: "Less: application-form fee (paid first)", amount: `- ${formatNaira(p.credit)}`, credit: true }, { label: "School fees after the application-form fee", amount: formatNaira(p.balance), strong: true }] : [])]) +
       (p.yearly || p.grad.length ? para(`<span style="font-size:14px;color:#555">${[p.yearly ? `Later years are charged at ${formatNaira(p.yearly)} a year.` : "", ...p.grad.map((g) => `${esc(g.label)}: ${formatNaira(g.amountKobo ?? 0)}${g.note ? ` (${esc(g.note)})` : ""}.`)].filter(Boolean).join(" ")}</span>`) : "") : "") +
     heading("What happens next") + steps([`<b>Pay the ${fee} application-form fee</b> to complete your registration. It is non-refundable${credited ? ", and once you are accepted it is deducted from your school fees" : ""}. The programme curriculum appears on your application page once you have paid.`, "<b>Wait for our acceptance email.</b> School fees can be paid only after your application has been accepted. Your programme invoice then appears on your application page.", ...(req.length ? ["<b>Bring your documents</b> (listed below) to the admission desk, both originals and photocopies."] : [])]) +
-    button(`Review and pay ${fee}`, url) +
+    button("Open your application", url) + para(`<span style="font-size:14px;color:#555">This link opens your application. If you have not paid yet, you can pay the ${fee} application-form fee there. If you have already paid, it shows your receipt and your next steps.</span>`) +
     (req.length ? heading("Documents and items to bring") + checklist(req) : "") +
     para(`<span style="font-size:13px;color:#666">Keep the button's link private: anyone with it can view this application. If you did not register, please ignore this email.</span>`);
   const text = [`Hello ${first(d.fullName)},`, "", `We have received your registration with the ${inst.name} and saved it. It is not complete until the application-form fee is paid. Reference: ${a.ref}`, "", `Programme: ${v.label}, ${v.durationLabel}`, choiceLabel(a) ? `Course: ${choiceLabel(a)}` : "", accLabel(a) ? `Student type: ${accLabel(a)}` : "", "",
     "Details you submitted:", `Name: ${d.fullName}`, `Phone: ${d.phone}`, `Email: ${d.email}`, d.dob ? `Date of birth: ${dateOf(d.dob)}` : "", d.address ? `Address: ${d.address}` : "", d.education ? `Education: ${d.education}` : "", d.emergencyName ? `Emergency contact: ${d.emergencyName} (${d.emergencyPhone})` : "", d.additional ? `Additional: ${d.additional}` : "", "",
     ...(p.charges.length ? ["Your fees:", ...p.charges.map((l) => `  ${l.label}: ${formatNaira(l.amountKobo)}`), `  Total: ${formatNaira(p.total)}`, ...(p.credit ? [`  Less application-form fee: -${formatNaira(p.credit)}`, `  School fees after the application-form fee: ${formatNaira(p.balance)}`] : []), ""] : []),
-    "Next steps:", `1. Pay the ${fee} application-form fee to complete your registration: ${url}`, "2. Wait for our acceptance email. School fees can be paid only after you are accepted.", ...(req.length ? ["3. Bring these to the admission desk (originals and photocopies):", ...req.map((r) => `   - ${r}`)] : []), "", "Keep the link private: anyone with it can view this application.", "", contactText(inst), "", "Everfresh Creations Ltd"].filter((x, i, arr) => x !== "" || arr[i - 1] !== "").join("\n");
+    "Next steps:", `1. Pay the ${fee} application-form fee to complete your registration, if you have not already: ${url}`, "2. Wait for our acceptance email. School fees can be paid only after you are accepted.", ...(req.length ? ["3. Bring these to the admission desk (originals and photocopies):", ...req.map((r) => `   - ${r}`)] : []), "", "Keep the link private: anyone with it can view this application.", "", contactText(inst), "", "Everfresh Creations Ltd"].filter((x, i, arr) => x !== "" || arr[i - 1] !== "").join("\n");
   return { to: d.email, kind: "application", subject: `Registration received: ${a.ref}`, text, html: emailShell({ siteUrl: siteUrl(), preheader: `We have received your registration ${a.ref}. Next step: pay the ${fee} application-form fee.`, title: "We have received your registration", body, footerLines: contactBlock(inst) }) };
 }
 
@@ -73,6 +73,21 @@ export function admittedMail(a: Application, c: VariantContent, inst: Institute,
     `View your application${inv ? " and pay your school fees" : ""}: ${url}`, "", contactText(inst), "", "Everfresh Creations Ltd"].join("\n");
   return { to: a.details.email, kind: "application", subject: `Application ${a.ref}: you have been accepted`, text, html: emailShell({ siteUrl: siteUrl(), preheader: `Your application ${a.ref} has been accepted. You can now pay your school fees.`, title: "You have been accepted", body, footerLines: contactBlock(inst) }) };
 }
+
+/** Sent when someone tries to start an application they already started: a link back to it, worded for where it stands. */
+export function resumeMail(a: Application, inst: Institute) {
+  const v = variantById(a.variantId)!; const url = link(a); const fee = formatNaira(a.feeKobo); const paid = a.payment.status === "paid"; const accepted = a.status === "admitted";
+  const prog = `${v.label} (${v.durationLabel})`;
+  const lead = !paid ? `You started application ${a.ref} for the ${prog}. It is not complete until the ${fee} application-form fee is paid.`
+    : accepted ? `Your application ${a.ref} for the ${prog} has been accepted. You can pay your school fees from your application page.`
+    : `Your application ${a.ref} for the ${prog} has been received and is awaiting review. Your application-form fee is already paid.`;
+  const cta = !paid ? "Continue your application" : accepted ? "Open your application" : "View your application";
+  const body = para(`Hello ${esc(first(a.details.fullName))},`) + para(esc(lead)) + refBadge(a.ref) + button(cta, url) +
+    para(`<span style="font-size:13px;color:#666">Keep this link private: anyone with it can view this application. If you did not try to apply, you can ignore this email. Nothing has changed.</span>`);
+  const text = [`Hello ${first(a.details.fullName)},`, "", lead, "", `${cta}: ${url}`, "", "Keep this link private: anyone with it can view this application. If you did not try to apply, you can ignore this email. Nothing has changed.", "", contactText(inst), "", "Everfresh Creations Ltd"].join("\n");
+  return { to: a.details.email, kind: "application", subject: `Application ${a.ref}: your link`, text, html: emailShell({ siteUrl: siteUrl(), preheader: `A link to application ${a.ref}.`, title: paid ? "Your application" : "Continue your application", body, footerLines: contactBlock(inst) }) };
+}
+export const mailResume = (repo: Repo, a: Application, i: Institute) => sendRaw(repo, resumeMail(a, i));
 
 /** All are fire-and-forget safe: the registration or payment is already saved, and sendRaw never throws. */
 export const mailRegistration = (repo: Repo, a: Application, c: VariantContent, i: Institute) => sendRaw(repo, registrationMail(a, c, i));

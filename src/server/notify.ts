@@ -50,7 +50,7 @@ export const applicationLinkMail = (a: AppMailInput) => {
   const url = `${siteUrl()}/application/${a.ref}/${a.token}`;
   const body =
     para(`Hello ${esc(first(a.details.fullName))},`) + para(`Your application <b>${esc(a.ref)}</b> has been started. Use the button below to review it, pay the application-form fee and download your documents.`) + refBadge(a.ref) +
-    para("Your application is not complete until the application-form fee is paid.") + button("Review and pay", url) + privateNote("view this application");
+    para("Your application is not complete until the application-form fee is paid.") + button("Open your application", url) + privateNote("view this application");
   return { to: a.details.email, kind: "application", subject: `Your Everfresh application ${a.ref}`, text: `Hello ${a.details.fullName},\n\nYour application ${a.ref} has been started. Use this private link to review it, pay the application-form fee and download your documents:\n${url}\n\nYour application is not complete until the application-form fee is paid. Keep this link private.${SIGN}`, html: brandedShell({ preheader: `Your application ${a.ref} has been started.`, title: "Your application has been started", body }) };
 };
 export const applicationPaidMail = (a: AppMailInput) => {
