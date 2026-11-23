@@ -15,6 +15,8 @@ const ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789";
 const inflight = new Map<string, Promise<Outcome>>();
 const nowOf = (d: OrderDeps) => (d.now?.() ?? new Date());
 export const tokenOk = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+/** A Bachs checkout session lasts 60 minutes (expiresInMinutes below). An "open" attempt older than that, plus a short grace, can no longer be paid. */
+const SESSION_MS = 62 * 60 * 1000;
 
 export async function buildPriceCtx(deps: OrderDeps): Promise<PriceCtx> {
   const [items, cats] = await Promise.all([deps.repo.listItems(), deps.repo.listCategories()]);
@@ -40,6 +42,8 @@ async function startAttemptLocked(deps: OrderDeps, order: Order): Promise<Outcom
   const latest = order.attempts[order.attempts.length - 1];
   const view = (url: string | null): Outcome => ({ ok: true, orderNumber: order.orderNumber, token: order.publicToken, checkoutUrl: url, paymentStatus: order.paymentStatus });
   if (order.paymentStatus === "paid") return view(null);
+  // An abandoned session cannot be paid once it has expired: close it, so a fresh one is started below instead of showing a dead link.
+  if (latest && latest.status === "open" && nowOf(deps).getTime() - Date.parse(latest.createdAt) > SESSION_MS) { latest.status = "expired"; latest.error = null; }
   if (latest && (latest.status === "needs_review" || latest.status === "succeeded")) return { ok: false, status: 409, code: "PAYMENT_UNDER_REVIEW", message: "This order's payment needs review. Please contact us." };
   if (latest && latest.status === "open" && latest.checkoutUrl) return view(latest.checkoutUrl);
 

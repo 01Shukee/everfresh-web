@@ -4,7 +4,7 @@ import type { Repo } from "./repo";
 import type { Order, PaymentAttempt } from "./types";
 import { handleVocEvent, vocClaims } from "./voc/payments";
 import { baseRef } from "../lib/refs";
-import { mailOrderPaid } from "./notify";
+import { mailOrderPaid, mailRefund } from "./notify";
 
 /** Which record this event changes; all events for one order/application/invoice are processed one at a time. */
 async function lockKeyFor(ev: { id: string; data: Record<string, any> }, repo: Repo): Promise<string> {
@@ -49,7 +49,7 @@ export async function handleBachsWebhook(raw: string, headers: { get(n: string):
     return attempt ? { order, attempt } : null;
   };
   const note = (o: Order, m: string) => o.notes.push(`${now} ${m}`);
-  let paidNow = false;
+  let paidNow = false; let refundKobo: number | null | undefined;
 
   const known = ["collection.succeeded", "collection.failed", "collection.underpaid", "checkout.expired", "refund.paid"];
   if (!known.includes(ev.type)) return ok("ignored");
@@ -100,12 +100,13 @@ export async function handleBachsWebhook(raw: string, headers: { get(n: string):
     case "refund.paid": {
       const refunded = decimalToKobo(d.refunded_amount);
       order.paymentStatus = refunded !== null && refunded >= order.totalKobo ? "refunded" : "partially_refunded";
-      note(order, `Refund ${d.refund_id ?? ""} paid (${d.refunded_amount ?? "?"}).`); break;
+      note(order, `Refund ${d.refund_id ?? ""} paid (${d.refunded_amount ?? "?"}).`); refundKobo = refunded; break;
     }
   }
   order.updatedAt = now;
   await deps.repo.saveOrder(order);
   if (paidNow) await mailOrderPaid(deps.repo, order);
+  if (refundKobo !== undefined) await mailRefund(deps.repo, { kind: "order", to: order.customer.email, name: order.customer.name, ref: order.orderNumber, what: "order", amountKobo: refundKobo, refundId: typeof d.refund_id === "string" ? d.refund_id : null, totalKobo: order.totalKobo, path: `/order/${order.orderNumber}/${order.publicToken}` });
   return ok();
   } catch (e) { await deps.repo.unmarkEvent(ev.id).catch(() => {}); throw e; }
   });

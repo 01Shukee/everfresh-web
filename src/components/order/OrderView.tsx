@@ -20,7 +20,7 @@ export function OrderView({ o, token }: { o: PublicOrder; token: string }) {
       <span className="lab green">Order confirmation</span>
       <h1 className="serif page-title">Order <span className="ordnum">{o.orderNumber}</span></h1>
       <div className={`paybox ${p.tone}`} role="status"><b className="serif">{p.t}</b><span>{p.d}</span></div>
-      <OrderLive number={o.orderNumber} token={token} paymentStatus={o.paymentStatus} canRetry={o.canRetryPayment} />
+      <OrderLive number={o.orderNumber} token={token} paymentStatus={o.paymentStatus} canRetry={o.canRetryPayment} canContinue={o.status === "pending_payment" && o.paymentStatus === "pending"} />
       <div className="co-grid">
         <div>
           <h2 className="serif">Summary</h2>

@@ -25,11 +25,11 @@ export async function applicationsApi(d: VocDeps, method: string, path: string[]
     if (method === "GET") { const v = await ownerViewGated(d, ref, token); return v ? j(200, v) : j(404, { error: "Application not found." }); }
     if (method === "PUT") { const r = await updateApplication(d, ref, token, body); return r.ok ? j(200, { ok: true }) : failOut(r); }
   }
-  if (a1 === "pay" && method === "POST") { const r = await startApplicationPayment(d, ref, token, (body as any)?.acknowledged === true); return r.ok ? j(200, { checkoutUrl: r.checkoutUrl, paymentStatus: r.paymentStatus }) : failOut(r); }
+  if (a1 === "pay" && method === "POST") { const r = await startApplicationPayment(d, ref, token, (body as any)?.acknowledged === true, (body as any)?.fresh === true); return r.ok ? j(200, { checkoutUrl: r.checkoutUrl, paymentStatus: r.paymentStatus }) : failOut(r); }
   if (a1 === "invoice" && a2 === "pay" && method === "POST") {
     const app = await appForToken(d.repo, ref, token); if (!app) return j(404, { error: "Application not found." });
     if (app.status !== "admitted") return j(403, NOT_ACCEPTED);   // school fees are payable only after acceptance, whatever the browser sends
-    const r = await startInvoicePayment(d, ref, token, (body as any)?.invoice); return r.ok ? j(200, { checkoutUrl: r.checkoutUrl }) : failOut(r);
+    const r = await startInvoicePayment(d, ref, token, (body as any)?.invoice, (body as any)?.fresh === true); return r.ok ? j(200, { checkoutUrl: r.checkoutUrl }) : failOut(r);
   }
   if (method === "GET" && (a1 === "receipt" || a1 === "confirmation" || a1 === "invoice")) {
     const app = await appForToken(d.repo, ref, token); if (!app) return j(404, { error: "Not found." });

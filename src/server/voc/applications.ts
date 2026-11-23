@@ -17,6 +17,10 @@ export const sameToken = (a: string, b: string) => typeof b === "string" && a.le
 const isRec = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const clean = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ").replace(/[ \t]+/g, " ").trim().slice(0, max) : "");
 
+/** A Bachs checkout session lasts 60 minutes (expiresInMinutes below). An "open" attempt older than that, plus a short grace, can no longer be paid. */
+const SESSION_MS = 62 * 60 * 1000;
+const sessionExpired = (a: { createdAt: string }, now: Date) => now.getTime() - Date.parse(a.createdAt) > SESSION_MS;
+
 export function validateDetails(raw: unknown, now: Date): { ok: true; value: ApplicationDetails } | { ok: false; fieldErrors: Record<string, string> } {
   const e: Record<string, string> = {}; const r = isRec(raw) ? raw : {}; const f = vocConfig.form;
   const fullName = clean(r.fullName, 80).replace(/\s+/g, " "); if (fullName.length < 2) e.fullName = "Enter your full name.";
@@ -110,14 +114,16 @@ async function updateApplicationImpl(deps: VocDeps, ref: string, token: string, 
 }
 
 export type PayOut = { ok: true; checkoutUrl: string | null; paymentStatus: Application["payment"]["status"] } | VocFail;
-/** Starts (or resumes) the application-form fee payment. The amount is fixed on the server; nothing from the browser sets it. */
-export async function startApplicationPayment(deps: VocDeps, ref: string, token: string, acknowledged = true): Promise<PayOut> {
+/** Starts (or resumes) the application-form fee payment. The amount is fixed on the server; nothing from the browser sets it.
+ *  A payment page that was left open is offered again; one that has expired, or that the applicant asks to restart (fresh), is closed and a new one is started. */
+export async function startApplicationPayment(deps: VocDeps, ref: string, token: string, acknowledged = true, fresh = false): Promise<PayOut> {
   return once("pay:" + ref, () => deps.repo.withLock(`app:${ref}`, async (): Promise<PayOut> => {
     const app = await appForToken(deps.repo, ref, token); if (!app) return fail(404, "NOT_FOUND", "Application not found.");
     const view = (u: string | null): PayOut => ({ ok: true, checkoutUrl: u, paymentStatus: app.payment.status });
     if (app.status === "withdrawn") return fail(409, "WITHDRAWN", "This application was withdrawn.");
     if (app.payment.status === "paid") return view(null);
     const latest = app.payment.attempts[app.payment.attempts.length - 1];
+    if (latest && latest.status === "open" && (fresh || sessionExpired(latest, nowOf(deps)))) { latest.status = "expired"; latest.error = null; }   // an abandoned session is closed; a new one is started below
     if (latest && latest.status === "needs_review") return fail(409, "PAYMENT_UNDER_REVIEW", "Your payment needs review. Please contact us before paying again.");
     if (latest && latest.status === "open" && latest.checkoutUrl) return view(latest.checkoutUrl);
     if (!acknowledged && !app.notes.some((n) => n.includes("Acknowledged non-refundable"))) return fail(422, "ACK_REQUIRED", "Please confirm that you understand the application-form fee is non-refundable.");
@@ -133,8 +139,8 @@ export async function startApplicationPayment(deps: VocDeps, ref: string, token:
   }));
 }
 
-/** Staff-issued invoice payment by the applicant: pays the full outstanding balance (no instalments). */
-export async function startInvoicePayment(deps: VocDeps, ref: string, token: string, invoiceNumber?: string): Promise<PayOut> {
+/** Staff-issued invoice payment by the applicant: pays the full outstanding balance (no instalments). Same resume / restart / expiry rules as the application fee. */
+export async function startInvoicePayment(deps: VocDeps, ref: string, token: string, invoiceNumber?: string, fresh = false): Promise<PayOut> {
   return once("invpay:" + ref, async () => {
     const app = await appForToken(deps.repo, ref, token); if (!app) return fail(404, "NOT_FOUND", "Application not found.");
     const cand = (await invoicesFor(deps.repo, ref)).find((i) => i.status === "issued" && (!invoiceNumber || i.number === invoiceNumber) && invoiceTotals(i).outstandingKobo > 0);
@@ -143,6 +149,7 @@ export async function startInvoicePayment(deps: VocDeps, ref: string, token: str
     const inv = (await deps.repo.docGet<Invoice>("invoice", cand.number))!;
     if (inv.status !== "issued" || invoiceTotals(inv).outstandingKobo <= 0) return fail(404, "NO_PAYABLE_INVOICE", "There is no invoice awaiting payment.");
     const owed = invoiceTotals(inv).outstandingKobo; const latest = inv.attempts[inv.attempts.length - 1];
+    if (latest && latest.status === "open" && (fresh || sessionExpired(latest, nowOf(deps)))) { latest.status = "expired"; latest.error = null; }
     if (latest && latest.status === "open" && latest.checkoutUrl) return latest.amountKobo === owed ? { ok: true, checkoutUrl: latest.checkoutUrl, paymentStatus: "pending" } : fail(409, "PAYMENT_PENDING", "A payment is already in progress for this invoice. Wait for it to complete or expire.");
     if (latest && latest.status === "needs_review") return fail(409, "PAYMENT_UNDER_REVIEW", "A payment for this invoice needs review. Please contact us.");
     let a = latest && latest.status === "initiating" && latest.amountKobo === owed ? latest : null;

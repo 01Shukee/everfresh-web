@@ -22,7 +22,7 @@ export function ApplicationView({ v, refNo, token }: { v: OwnerViewGated; refNo:
       {paid ? (admitted
         ? <div className="paybox ok" role="status"><b className="serif">Congratulations, you have been accepted</b><span>Your programme invoice is below. Pay your school fees to secure your place. The application-form fee you paid has already been deducted.</span></div>
         : <div className="paybox ok" role="status"><b className="serif">Payment verified</b><span>Your application-form fee has been received and your application is awaiting review. <b>This is not an offer of admission.</b> Wait for our acceptance email: school fees can be paid only after you are accepted.</span></div>)
-        : mode === "pending" ? <div className="paybox wait" role="status"><b className="serif">Waiting for payment confirmation</b><span>This page updates by itself once the payment is verified.</span></div>
+        : mode === "pending" ? <div className="paybox wait" role="status"><b className="serif">Waiting for payment confirmation</b><span>If you have just paid, this page updates by itself once the payment is verified. If you left without paying, continue below.</span></div>
         : mode === "review" ? <div className="paybox wait" role="status"><b className="serif">We&rsquo;re reviewing your payment</b><span>Please contact us before paying again.</span></div>
         : (v.payment.status === "failed" || v.payment.status === "expired") ? <div className="paybox bad" role="alert"><b className="serif">Payment didn&rsquo;t go through</b><span>Nothing was charged for that attempt. You can try again.</span></div> : null}
       <div className="co-grid">

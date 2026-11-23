@@ -7,6 +7,7 @@ import { getContent } from "./applications";
 import { issueProgrammeInvoice } from "./autoinvoice";
 import { mailFeeReceived } from "./emails";
 import { getInstitute } from "./institute";
+import { mailRefund } from "../notify";
 
 export const isVocRef = (r: unknown): r is string => typeof r === "string" && (r.startsWith("VA-") || r.startsWith("VI-"));
 import { baseRef } from "../../lib/refs";
@@ -33,6 +34,7 @@ export async function issueReceipt(repo: Repo, now: Date, r: Omit<Receipt, "numb
 /** Applies a verified Bachs event to an application-fee or invoice payment. Only this path can mark vocational payments paid. */
 export async function handleVocEvent(ev: { type: string; data: Record<string, any> }, repo: Repo, now: Date): Promise<{ status: number; body: string }> {
   const d = ev.data; const ts = now.toISOString(); const ok = (b = "ok") => ({ status: 200, body: b });
+  const refundId = typeof d.refund_id === "string" ? d.refund_id : null;
   let kind: "app" | "inv" | null = null, ref = "";
   if (typeof d.reference === "string" && d.reference.startsWith("VA-")) { kind = "app"; ref = d.reference; }
   else if (typeof d.reference === "string" && d.reference.startsWith("VI-")) { kind = "inv"; ref = d.reference; }
@@ -43,7 +45,7 @@ export async function handleVocEvent(ev: { type: string; data: Record<string, an
     const app = await repo.docGet<Application>("app", appRefOf(ref)); if (!app) return ok("unknown reference");
     const attempt = app.payment.attempts.find((a) => a.reference === ref) ?? app.payment.attempts.find((a) => a.chargeId && a.chargeId === d.charge_id);
     if (!attempt) return ok("unknown reference");
-    const latest = app.payment.attempts[app.payment.attempts.length - 1]; const note = (m: string) => app.notes.push(`${ts} ${m}`); let firstPaid = false;
+    const latest = app.payment.attempts[app.payment.attempts.length - 1]; const note = (m: string) => app.notes.push(`${ts} ${m}`); let firstPaid = false; let appRefunded = false; let appRefundKobo: number | null = null;
     switch (ev.type) {
       case "collection.succeeded": {
         attempt.chargeId = typeof d.charge_id === "string" ? d.charge_id : attempt.chargeId;
@@ -68,12 +70,14 @@ export async function handleVocEvent(ev: { type: string; data: Record<string, an
         if (app.payment.status === "pending" && attempt.reference === latest.reference) app.payment.status = "expired";
         break;
       case "collection.underpaid": attempt.status = "needs_review"; if (app.payment.status !== "paid") app.payment.status = "needs_review"; note("Applicant underpaid. Review in Bachs."); break;
-      case "refund.paid": app.payment.status = "refunded"; note(`Refund ${d.refund_id ?? ""} paid. (Application-form fee is non-refundable; this was an exceptional refund.)`); break;
+      case "refund.paid": app.payment.status = "refunded"; note(`Refund ${d.refund_id ?? ""} paid. (Application-form fee is non-refundable; this was an exceptional refund.)`); appRefunded = true; appRefundKobo = decimalToKobo(d.refunded_amount); break;
       default: return ok("ignored");
     }
     app.updatedAt = ts; await repo.docPut("app", app.ref, app);
+    if (appRefunded) await mailRefund(repo, { kind: "application", to: app.details.email, name: app.details.fullName, ref: app.ref, what: "application-form fee", amountKobo: appRefundKobo, refundId, totalKobo: app.feeKobo, path: `/application/${app.ref}/${app.token}` });
     if (firstPaid) {
       // The payment is already saved. Neither step below can undo it: a failure is logged on the application and can be retried by staff.
+      // The school-fees invoice is NOT raised here: it is raised when staff accept the applicant.
       let inv: Invoice | null = null;
       try { inv = await issueProgrammeInvoice(repo, now, app); } catch (e) { app.notes.push(`${ts} The programme invoice could not be raised automatically (${(e as Error).message}). Raise it by hand in the admin.`); await repo.docPut("app", app.ref, app); }
       try { await mailFeeReceived(repo, app, await getContent(repo, app.variantId), await getInstitute(repo), inv); } catch { /* retried from the outbox */ }
@@ -83,7 +87,7 @@ export async function handleVocEvent(ev: { type: string; data: Record<string, an
 
   const num = invNumberOf(ref); const inv = await repo.docGet<Invoice>("invoice", num); if (!inv) return ok("unknown reference");
   const attempt = inv.attempts.find((a) => a.reference === ref) ?? inv.attempts.find((a) => a.chargeId && a.chargeId === d.charge_id); if (!attempt) return ok("unknown reference");
-  const latest = inv.attempts[inv.attempts.length - 1]; const note = (m: string) => inv.notes.push(`${ts} ${m}`);
+  const latest = inv.attempts[inv.attempts.length - 1]; const note = (m: string) => inv.notes.push(`${ts} ${m}`); let invRefunded = false; let invRefundKobo: number | null = null;
   switch (ev.type) {
     case "collection.succeeded": {
       attempt.chargeId = typeof d.charge_id === "string" ? d.charge_id : attempt.chargeId;
@@ -102,8 +106,13 @@ export async function handleVocEvent(ev: { type: string; data: Record<string, an
     case "collection.failed": if (attempt.status !== "succeeded") { attempt.status = "failed"; attempt.error = String(d.reason ?? "Payment failed"); } break;
     case "checkout.expired": if (attempt.status === "open" || attempt.status === "initiating") attempt.status = "expired"; break;
     case "collection.underpaid": attempt.status = "needs_review"; note("Applicant underpaid. Review in Bachs."); break;
-    case "refund.paid": note(`Refund ${d.refund_id ?? ""} paid (${d.refunded_amount ?? "?"}). Adjust the invoice manually if needed.`); break;
+    case "refund.paid": note(`Refund ${d.refund_id ?? ""} paid (${d.refunded_amount ?? "?"}). Adjust the invoice manually if needed.`); invRefunded = true; invRefundKobo = decimalToKobo(d.refunded_amount); break;
     default: return ok("ignored");
   }
-  void latest; await repo.docPut("invoice", inv.number, inv); return ok();
+  void latest; await repo.docPut("invoice", inv.number, inv);
+  if (invRefunded) {
+    const a = await repo.docGet<Application>("app", inv.appRef);
+    if (a) await mailRefund(repo, { kind: "application", to: a.details.email, name: a.details.fullName, ref: inv.number, what: "school fees payment", amountKobo: invRefundKobo, refundId, totalKobo: attempt.amountKobo, path: `/application/${a.ref}/${a.token}` });
+  }
+  return ok();
 }
