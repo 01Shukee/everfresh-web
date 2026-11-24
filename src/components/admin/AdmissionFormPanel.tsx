@@ -9,8 +9,13 @@ const kb = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)} MB` :
 /** Staff view of one application's admission form and payment safety nets. Shown inside Admin > Vocational studies > an application. */
 export function AdmissionFormPanel({ refNo, onDone }: { refNo: string; onDone: () => void }) {
   const [info, setInfo] = useState<any>(null); const [msg, setMsg] = useState(""); const [note, setNote] = useState(""); const [payNote, setPayNote] = useState(""); const base = `/api/admin/voc/applications/${refNo}`;
+  const [office, setOffice] = useState({ receivedDate: "", checkedBy: "", offered: "", offeredDate: "", officerName: "", stamp: "" });
   const load = useCallback(async () => { const r = await api(`${base}/form`); if (r.ok) setInfo(r.json); }, [base]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const fm = info?.form; if (!fm) return; const o = fm.office;
+    setOffice({ receivedDate: o?.receivedDate ?? (fm.submittedAt ? String(fm.submittedAt).slice(0, 10) : ""), checkedBy: o?.checkedBy ?? "", offered: o?.offered ?? "", offeredDate: o?.offeredDate ?? "", officerName: o?.officerName ?? "", stamp: o?.stamp ?? "" });
+  }, [info]);
   const run = async (fn: () => Promise<{ ok: boolean; json: any }>, success: string) => { const r = await fn(); setMsg(r.ok ? success : r.json.error ?? "Failed."); await load(); onDone(); };
   if (!info) return null;
   const f = info.form; const files: any[] = f?.files ?? []; const scans = files.filter((x) => x.kind === "scan"); const passport = files.find((x) => x.kind === "passport");
@@ -28,7 +33,11 @@ export function AdmissionFormPanel({ refNo, onDone }: { refNo: string; onDone: (
           <p className="small"><b>{f.status === "school_signed" ? "School section signed" : f.status === "submitted" ? `Submitted (${f.mode === "print" ? "signed copy uploaded" : "filled in and signed online"})` : "Sent back for correction"}</b>{f.submittedAt ? ` · ${when(f.submittedAt)}` : ""}{f.schoolSignedAt ? ` · signed ${when(f.schoolSignedAt)}` : ""}</p>
           {f.staffNote && <p className="small">Note sent: {f.staffNote}</p>}</>}
         {f && f.status !== "draft" && f.data && <details open><summary className="small"><b>What the applicant filled in</b></summary><dl className="small">{allFormFields.filter((x) => f.data[x.id]).map((x) => <div key={x.id}><dt>{x.label}</dt><dd>{f.data[x.id]}</dd></div>)}</dl></details>}
-        {f && f.mode === "online" && f.status !== "draft" && <p><a className="pill sm" href={`${base}/form/pdf`} target="_blank" rel="noopener">Open form to print (PDF)</a> <span className="small">The &ldquo;For official use only&rdquo; box is left blank for the school to complete and sign.</span></p>}
+        {f && f.mode === "online" && f.status !== "draft" && <p><a className="pill sm" href={`${base}/form/pdf`} target="_blank" rel="noopener">Open form to print (PDF)</a> <span className="small">The official-use box prints with the details saved below. Sign it by hand after printing.</span></p>}
+        {f && f.status !== "draft" && <details className="small" open={!!f.office}><summary><b>For official use only</b>{f.office ? ` · saved ${when(f.office.savedAt)}` : ""}</summary>
+          <p className="small">Fill these in and press Save. They are printed into the &ldquo;For official use only&rdquo; box when you open the form to print.</p>
+          {([["receivedDate", "Date received", "date"], ["checkedBy", "Credentials checked by", "text"], ["offered", "Admission offered", "text"], ["offeredDate", "Date", "date"], ["officerName", "Admission officer (name)", "text"], ["stamp", "Stamp / remarks", "text"]] as const).map(([k, lab, type]) => <div className="field" key={k}><label htmlFor={`of-${k}-${refNo}`}>{lab}</label><input id={`of-${k}-${refNo}`} type={type} value={office[k]} maxLength={type === "date" ? 10 : 60} onChange={(e) => setOffice({ ...office, [k]: e.target.value })} /></div>)}
+          <button className="pill sm" onClick={() => run(() => api(`${base}/form`, "PATCH", { action: "save_office", office }), "Official-use details saved. Open the form to print to see them.")}>Save official-use details</button></details>}
         {(scans.length > 0 || passport) && <ul className="small">{passport && <li><a className="linkbtn" href={`${base}/form/file/${passport.id}`} target="_blank" rel="noopener">Passport photograph</a> ({kb(passport.size)})</li>}{scans.map((s) => <li key={s.id}><a className="linkbtn" href={`${base}/form/file/${s.id}`} target="_blank" rel="noopener">{s.name}</a> ({kb(s.size)})</li>)}</ul>}
         {f && f.status !== "draft" && <div className="acts">
           {f.status !== "school_signed" && <button className="pill sm" onClick={() => run(() => api(`${base}/form`, "PATCH", { action: "school_signed" }), "Marked as signed by the school.")}>Mark school section signed</button>}

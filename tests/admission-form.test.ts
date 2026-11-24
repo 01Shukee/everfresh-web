@@ -22,7 +22,7 @@ import {
 } from "../src/server/voc/form";
 import { admissionFormPdf } from "../src/server/voc/formpdf";
 import { confirmFeeByStaff } from "../src/server/voc/staffpay";
-import { FakeGateway, NOW } from "./helpers";
+import { FakeGateway, NOW, markFormSubmitted } from "./helpers";
 
 async function setup() {
   const repo = new MemoryRepo();
@@ -447,4 +447,38 @@ test("every part of the form is compulsory; a started school row must be complet
   const partial = { ...fullData(), sch2Name: "", sch3From: "", sch3Name: "", sch3Exam: "", sch3ExamDate: "" };   // row 2 half done, row 3 empty
   const r2: any = await saveForm(d, ref, token, { data: partial, confirmed: true }, true);
   assert.ok(!r2.ok && r2.fieldErrors.sch2Name && !r2.fieldErrors.sch3Name);
+});
+
+test("staff can save the official-use details; they print only on the staff copy", async () => {
+  const { repo, d, ref } = await setup();
+  await markPaid(repo, ref);
+
+  const none: any = await staffFormAction(d, ref, { action: "save_office", office: {} });
+  assert.equal(none.status, 404);
+
+  await markFormSubmitted(repo, ref);
+
+  const badDate: any = await staffFormAction(d, ref, { action: "save_office", office: { receivedDate: "yesterday" } });
+  assert.equal(badDate.status, 422);
+
+  const saved: any = await staffFormAction(d, ref, {
+    action: "save_office",
+    office: { receivedDate: "2026-11-24", checkedBy: "Mr Eze", offered: "Yes", offeredDate: "2026-11-25", officerName: "Mrs Ada Obi", stamp: "Registry stamp 14" },
+  });
+  assert.equal(saved.status, 200);
+
+  const rec = (await getForm(repo, ref))!;
+  assert.equal(rec.office?.officerName, "Mrs Ada Obi");
+  assert.equal(rec.office?.offeredDate, "2026-11-25");
+
+  const app = (await getApp(repo, ref))!;
+  const none2 = { passport: null, signatures: {} };
+  const staffCopy = await admissionFormPdf(app, rec, none2, false, true);
+  const applicantCopy = await admissionFormPdf(app, rec, none2, false);
+  assert.equal(Buffer.from(staffCopy.subarray(0, 5)).toString("latin1"), "%PDF-");
+  assert.ok(staffCopy.length > applicantCopy.length, "the staff copy carries the extra official-use text");
+
+  // the applicant's own view of the form never includes the official-use details
+  const view: any = await getFormView(d, ref, (app as any).token);
+  assert.ok(view.ok && !("office" in view.view));
 });

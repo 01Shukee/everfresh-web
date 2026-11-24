@@ -19,10 +19,10 @@ const pdf = async (d: VocDeps, html: () => string, make: () => Promise<Uint8Arra
   try { return { status: 200, pdf: d.renderPdf ? await d.renderPdf(html()) : await make(), filename }; }
   catch (e) { console.error("[pdf] could not create", filename, e); return j(500, { error: "We could not create the PDF. Please try again in a moment." }); }
 };
-const formPdf = async (d: VocDeps, app: Application, rec: AdmissionFormRec | null, blank: boolean): Promise<ApiOut> => {
+const formPdf = async (d: VocDeps, app: Application, rec: AdmissionFormRec | null, blank: boolean, office = false): Promise<ApiOut> => {
   try {
     const files = blank || !rec ? { passport: null, signatures: {} } : await filesForPdf(d.repo, rec);
-    return { status: 200, pdf: await admissionFormPdf(app, blank ? null : rec, files, blank || !rec), filename: `admission-form-${app.ref}${blank ? "-blank" : ""}.pdf` };
+    return { status: 200, pdf: await admissionFormPdf(app, blank ? null : rec, files, blank || !rec, office), filename: `admission-form-${app.ref}${blank ? "-blank" : ""}.pdf` };
   } catch (e) { console.error("[pdf] admission form", e); return j(500, { error: "We could not create the PDF. Please try again in a moment." }); }
 };
 
@@ -92,7 +92,7 @@ export async function adminVocApi(d: VocDeps, method: string, path: string[], bo
     if (sub === "form") {
       if (!sub2 && method === "GET") { const info = await adminFormInfo(d.repo, id); return info ? j(200, info) : j(404, { error: "Not found." }); }
       if (!sub2 && method === "PATCH") return staffFormAction(d, id, body);
-      if (sub2 === "pdf" && method === "GET") { const app = await d.repo.docGet<Application>("app", id); return app ? formPdf(d, app, await getForm(d.repo, id), false) : j(404, { error: "Not found." }); }
+      if (sub2 === "pdf" && method === "GET") { const app = await d.repo.docGet<Application>("app", id); return app ? formPdf(d, app, await getForm(d.repo, id), false, true) : j(404, { error: "Not found." }); }
       if (sub2 === "file" && sub3 && method === "GET") { const f = await getFileBytes(d.repo, id, sub3); return f ? { status: 200, file: f.bytes, contentType: f.type, filename: f.name } : j(404, { error: "File not found." }); }
     }
   }

@@ -29,7 +29,7 @@ function readLogo(): Uint8Array | null { try { return readFileSync(join(process.
 
 type Row = [label: string, labelX: number, field: string | null, x1: number, x2: number];
 
-export async function admissionFormPdf(app: Application, rec: AdmissionFormRec | null, files: FormPdfFiles, blank: boolean): Promise<Uint8Array> {
+export async function admissionFormPdf(app: Application, rec: AdmissionFormRec | null, files: FormPdfFiles, blank: boolean, withOffice = false): Promise<Uint8Array> {
   const pdf = await PDFDocument.create(); pdf.setTitle(safe(`${admissionForm.letterhead.name} ${admissionForm.title} ${app.ref}`));
   const font = await pdf.embedFont(StandardFonts.Helvetica), bold = await pdf.embedFont(StandardFonts.HelveticaBold), ital = await pdf.embedFont(StandardFonts.HelveticaOblique);
   const times = await pdf.embedFont(StandardFonts.TimesRoman), timesBI = await pdf.embedFont(StandardFonts.TimesRomanBoldItalic);
@@ -185,6 +185,14 @@ export async function admissionFormPdf(app: Application, rec: AdmissionFormRec |
   off("Date Received:", 66, 703.1); ul(133, 216.8, 704.4); off("Credentials Checked by:", 311.6, 703.1); ul(416.8, 500.6, 704.4);
   off("Admission Offered:", 66, 723.4); ul(148.6, 242.9, 724.7); off("Date:", 311.6, 723.4); ul(336.7, 493.8, 724.7);
   ul(311.6, 458.2, 749.4); off("Admission Officer", 311.6, 760.5);
+  // Staff copy only: what the school typed in the admin for this box.
+  const of = withOffice && !blank ? rec?.office : null;
+  if (of) {
+    entry(of.receivedDate ? dmy(of.receivedDate) : "", 133, 216.8, 704.4); entry(of.checkedBy, 416.8, 500.6, 704.4);
+    entry(of.offered, 148.6, 242.9, 724.7); entry(of.offeredDate ? dmy(of.offeredDate) : "", 336.7, 493.8, 724.7);
+    entry(of.officerName, 311.6, 458.2, 749.4);
+    if (of.stamp) { off("Stamp / remarks:", 66, 745.5); ul(66, 300, 761.5); entry(of.stamp, 66, 300, 761.5); }
+  }
   footer(2);
   return pdf.save();
 }

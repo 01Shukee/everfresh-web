@@ -21,11 +21,13 @@ const LIMITS = { passport: 600_000, signature: 120_000, scan: 2_000_000, scans: 
 const MIME: Record<string, string> = { jpg: "image/jpeg", png: "image/png", webp: "image/webp" };
 
 export type FormStatus = "draft" | "submitted" | "school_signed";
+/** What the school writes in the "For official use only" box. Entered by staff in the admin; printed only on the staff copy. */
+export interface OfficeUse { receivedDate: string; checkedBy: string; offered: string; offeredDate: string; officerName: string; stamp: string; savedAt: string }
 export interface FileRef { id: string; kind: "passport" | "signature" | "scan"; role?: SignRole; name: string; type: string; size: number; at: string }
 export interface AdmissionFormRec {
   ref: string; template: string; status: FormStatus; mode: "online" | "print" | null; data: Record<string, string>;
   signatures: Partial<Record<SignRole, { fileId: string; signedAt: string }>>; passportId: string | null; scanIds: string[]; files: FileRef[];
-  confirmed: boolean; staffNote: string | null; returnedAt: string | null; createdAt: string; updatedAt: string; submittedAt: string | null; schoolSignedAt: string | null;
+  confirmed: boolean; staffNote: string | null; office?: OfficeUse | null; returnedAt: string | null; createdAt: string; updatedAt: string; submittedAt: string | null; schoolSignedAt: string | null;
 }
 export interface FormViewData {
   ref: string; programme: string; template: string; isPlaceholder: boolean; status: FormStatus; mode: "online" | "print" | null; data: Record<string, string>;
@@ -197,6 +199,12 @@ export async function staffFormAction(d: VocDeps, ref: string, raw: unknown): Pr
     } else if (action === "return") {
       const note = clean(r.note, 400); if (!note) return { status: 422, body: { error: "Write what the applicant should correct." } };
       rec.status = "draft"; rec.mode = null; rec.staffNote = note; rec.returnedAt = now.toISOString(); rec.schoolSignedAt = null;
+    } else if (action === "save_office") {
+      if (rec.status === "draft") return { status: 409, body: { error: "The applicant has not submitted the form yet." } };
+      const o = isRec(r.office) ? r.office : {};
+      const isoDate = (x: unknown) => { const v = clean(x, 10); return /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(new Date(v + "T00:00:00Z").getTime()) ? v : ""; };
+      for (const k of ["receivedDate", "offeredDate"] as const) if (clean(o[k], 10) && !isoDate(o[k])) return { status: 422, body: { error: "Enter a valid date." } };
+      rec.office = { receivedDate: isoDate(o.receivedDate), checkedBy: clean(o.checkedBy, 60), offered: clean(o.offered, 60), offeredDate: isoDate(o.offeredDate), officerName: clean(o.officerName, 60), stamp: clean(o.stamp, 120), savedAt: now.toISOString() };
     } else if (action === "purge") {
       for (const f of [...rec.files]) await dropFile(d.repo, rec, f.id); rec.passportId = null; rec.scanIds = []; rec.signatures = {};
     } else return { status: 422, body: { error: "Unknown action." } };
