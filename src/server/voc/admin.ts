@@ -5,6 +5,7 @@ import type { ApiResult } from "../admin-api";
 import { cleanImageUrl } from "../image-url";
 import { UniqueViolation, type Repo } from "../repo";
 import { getApp, getContent, invoicesFor } from "./applications";
+import { formSummary, getForm } from "./form";
 import {
   invoiceState,
   invoiceTotals,
@@ -78,6 +79,7 @@ export async function adminApplication(repo: Repo, ref: string) {
       totals: invoiceTotals(i),
     })),
     receipts,
+    form: await formSummary(repo, ref),
   };
 }
 
@@ -147,6 +149,19 @@ async function setApplicationStatusImpl(
         error: "The application-form fee must be verified as paid first.",
       },
     };
+  }
+
+  if (to === "admitted") {
+    const form = await getForm(repo, ref);
+    if (!form || form.status === "draft") {
+      return {
+        status: 409,
+        body: {
+          error:
+            "The applicant has not submitted the admission form yet (or it was sent back for correction). Accept them after the form is in.",
+        },
+      };
+    }
   }
 
   a.status = to;

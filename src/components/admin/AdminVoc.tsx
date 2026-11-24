@@ -8,6 +8,7 @@ import {
 } from "./shared";
 import { useCallback, useEffect, useState } from "react";
 import { VARIANTS } from "@/config/vocational";
+import { AdmissionFormPanel } from "./AdmissionFormPanel";
 import { decimalToKobo, formatNaira } from "@/lib/money";
 import {
   parseCourses,
@@ -177,6 +178,8 @@ function Applications() {
     );
   };
 
+  const formIn = !!det && !!det.form && ["submitted", "school_signed"].includes(det.form.status);
+
   return (
     <section aria-labelledby="av">
       <div className="bar">
@@ -314,6 +317,8 @@ function Applications() {
                           <>
                             <button
                               className="pill sm"
+                              disabled={!formIn}
+                              title={formIn ? undefined : "Available after the applicant submits the admission form"}
                               onClick={() =>
                                 changeStatus(
                                   "admitted",
@@ -398,10 +403,20 @@ function Applications() {
                       </p>
                     ) : (
                       <p className="small">
-                        Accepting a student automatically creates the
-                        school-fees invoice and sends an admission email.
+                        {formIn
+                          ? "The admission form is in. Review it below, then accept the student. Accepting automatically creates the school-fees invoice and sends an admission email."
+                          : "You can accept this student only after they submit the admission form (shown below)."}
                       </p>
                     )}
+
+                    <AdmissionFormPanel
+                      key={det.ref}
+                      refNo={det.ref}
+                      onDone={() => {
+                        void loadDet(det.ref);
+                        void load();
+                      }}
+                    />
                   </div>
 
                   <div>

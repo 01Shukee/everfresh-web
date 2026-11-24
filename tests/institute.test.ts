@@ -17,7 +17,7 @@ import { adminVocApi } from "../src/server/voc/api";
 import { VARIANTS } from "../src/config/vocational";
 import { handleBachsWebhook } from "../src/server/webhook";
 import { MemoryRepo } from "../src/server/repo";
-import { FakeGateway, NOW, SECRET, evt, signed } from "./helpers";
+import { FakeGateway, NOW, SECRET, evt, markFormSubmitted, signed } from "./helpers";
 
 async function setup() {
   const repo = new MemoryRepo();
@@ -85,14 +85,16 @@ const net = async (d: VocDeps, ref: string) => {
   return invoiceTotals(inv[0]).outstandingKobo / 100;
 };
 
-const admit = (d: VocDeps, ref: string) =>
-  adminVocApi(
+const admit = async (d: VocDeps, ref: string) => {
+  await markFormSubmitted(d.repo, ref);
+  return adminVocApi(
     d,
     "PATCH",
     ["applications", ref],
     { status: "admitted", note: "Reviewed" },
     new URLSearchParams()
   );
+};
 
 test("programme invoice is generated after admission, for every programme", async () => {
   const { d } = await setup();
