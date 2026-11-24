@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { api, when } from "./shared";
+import { allFormFields } from "@/config/admissionForm";
 import "../voc/admission-form.css";
 
 const kb = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1000))} KB`);
@@ -26,14 +27,15 @@ export function AdmissionFormPanel({ refNo, onDone }: { refNo: string; onDone: (
         {!f || (f.status === "draft" && !f.mode && !f.submittedAt) ? <p className="small">{f ? "The applicant has started the form but not submitted it." : "The applicant has not started the form yet."}</p> : <>
           <p className="small"><b>{f.status === "school_signed" ? "School section signed" : f.status === "submitted" ? `Submitted (${f.mode === "print" ? "signed copy uploaded" : "filled in and signed online"})` : "Sent back for correction"}</b>{f.submittedAt ? ` · ${when(f.submittedAt)}` : ""}{f.schoolSignedAt ? ` · signed ${when(f.schoolSignedAt)}` : ""}</p>
           {f.staffNote && <p className="small">Note sent: {f.staffNote}</p>}</>}
-        {f && f.mode === "online" && <p><a className="pill ghost sm" href={`${base}/form/pdf`} target="_blank" rel="noopener">Open printable form with signatures (PDF)</a></p>}
+        {f && f.status !== "draft" && f.data && <details open><summary className="small"><b>What the applicant filled in</b></summary><dl className="small">{allFormFields.filter((x) => f.data[x.id]).map((x) => <div key={x.id}><dt>{x.label}</dt><dd>{f.data[x.id]}</dd></div>)}</dl></details>}
+        {f && f.mode === "online" && f.status !== "draft" && <p><a className="pill sm" href={`${base}/form/pdf`} target="_blank" rel="noopener">Open form to print (PDF)</a> <span className="small">The &ldquo;For official use only&rdquo; box is left blank for the school to complete and sign.</span></p>}
         {(scans.length > 0 || passport) && <ul className="small">{passport && <li><a className="linkbtn" href={`${base}/form/file/${passport.id}`} target="_blank" rel="noopener">Passport photograph</a> ({kb(passport.size)})</li>}{scans.map((s) => <li key={s.id}><a className="linkbtn" href={`${base}/form/file/${s.id}`} target="_blank" rel="noopener">{s.name}</a> ({kb(s.size)})</li>)}</ul>}
         {f && f.status !== "draft" && <div className="acts">
           {f.status !== "school_signed" && <button className="pill sm" onClick={() => run(() => api(`${base}/form`, "PATCH", { action: "school_signed" }), "Marked as signed by the school.")}>Mark school section signed</button>}
           <button className="pill ghost sm" onClick={() => { if (confirm("Delete the uploaded files (photo, signatures, scans)? Do this only after the form has been printed and filed.")) run(() => api(`${base}/form`, "PATCH", { action: "purge" }), "Uploaded files deleted."); }}>Delete uploaded files</button></div>}
         {f && f.status !== "draft" && <div className="field"><label htmlFor={`rn-${refNo}`}>Something to correct? Tell the applicant:</label><input id={`rn-${refNo}`} value={note} onChange={(e) => setNote(e.target.value)} /><button className="pill ghost sm" disabled={!note.trim()} onClick={() => run(() => api(`${base}/form`, "PATCH", { action: "return", note }), "Sent back. The applicant has been emailed.")}>Send back for correction</button></div>}
         {info.admitted && <div className="acts"><button className="pill ghost sm" onClick={() => run(() => api(`${base}/accept-again`, "POST"), "Acceptance email and school-fees invoice re-sent.")}>Resend acceptance email and school-fees invoice</button></div>}
-        {!info.admitted && f?.status === "submitted" && <p className="small">The form is in. You can now press <b>admitted</b> above.</p>}
+        {!info.admitted && f?.status === "submitted" && <p className="small">The form is in. After reviewing it, press <b>Accept student</b> above.</p>}
       </>}
     </div>
   );

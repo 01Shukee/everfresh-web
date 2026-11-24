@@ -21,7 +21,7 @@ import { invoiceTotals, type Application, type Invoice, type Receipt } from "../
 import { chromiumPdf, confirmationHtml, invoiceHtml, receiptHtml } from "../src/server/voc/pdf";
 import { handleBachsWebhook } from "../src/server/webhook";
 import { MemoryRepo } from "../src/server/repo";
-import { FakeGateway, NOW, SECRET, evt, signed } from "./helpers";
+import { FakeGateway, NOW, SECRET, evt, markFormSubmitted, signed } from "./helpers";
 
 const T0 = NOW;
 
@@ -534,6 +534,20 @@ test("staff status rules: cannot admit unpaid; admission triggers the admission 
   );
 
   assert.equal(review.status, 200);
+
+  // The admission form must be submitted before staff can accept.
+  const early = await adminVocApi(
+    d,
+    "PATCH",
+    ["applications", r.ref],
+    { status: "admitted", note: "Reviewed" },
+    new URLSearchParams()
+  );
+
+  assert.equal(early.status, 409);
+  assert.equal((await getApp(repo, r.ref))!.status, "under_review");
+
+  await markFormSubmitted(repo, r.ref);
 
   const admitted = await adminVocApi(
     d,

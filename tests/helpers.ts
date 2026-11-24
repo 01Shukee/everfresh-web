@@ -50,3 +50,12 @@ export function signed(payload: object, opts: { secret?: string; t?: number; ext
 }
 let e = 0;
 export const evt = (type: string, data: object) => ({ id: `evt_${++e}`, type, created_at: NOW.toISOString(), organization_id: "acct_test", data });
+
+/** Test shortcut: records that the applicant has submitted the admission form, so staff may accept them. */
+export async function markFormSubmitted(repo: { docPut: (col: string, id: string, v: unknown) => Promise<unknown> }, ref: string) {
+  const at = new Date().toISOString();
+  await repo.docPut("aform", ref, {
+    ref, template: "test", status: "submitted", mode: "online", data: {}, signatures: {}, passportId: null, scanIds: [], files: [],
+    confirmed: true, staffNote: null, returnedAt: null, createdAt: at, updatedAt: at, submittedAt: at, schoolSignedAt: null,
+  });
+}
