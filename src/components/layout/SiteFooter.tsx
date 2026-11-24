@@ -7,7 +7,9 @@ import { EverfreshLocationMap } from "@/components/site/EverfreshLocationMap";
 /** Every detail comes from the saved business settings (Admin > Website > Business and contact) or the site's own pages. A detail that has not been supplied is simply left out, never invented. */
 export function SiteFooter({ s, whatsapp }: { s: Pick<SiteSettings, "business" | "contact" | "brand">; whatsapp?: string | null }) {
   const c = s.contact; const wa = whatsapp !== undefined ? whatsapp : normaliseWhatsAppNumber(c.whatsapp);
-  const tel = c.phone?.replace(/[^\d+]/g, ""); const place = [c.address, c.city].filter(Boolean).join(", ");
+  const tel = c.phone?.replace(/[^\d+]/g, "");
+const vocationalTel = c.vocationalPhone?.replace(/[^\d+]/g, "");
+const place = [c.address, c.city].filter(Boolean).join(", ");
   const year = new Date().getFullYear();
   const about = s.business.description ?? `Order food, study a vocational programme, or plan an event with ${s.business.name}.`;
   return (
@@ -17,7 +19,7 @@ export function SiteFooter({ s, whatsapp }: { s: Pick<SiteSettings, "business" |
           <div className="fbrand">
             <div className="logo panel"><img className="mark" src={s.brand.emblemUrl ?? "/brand/everfresh-emblem-reference.jpg"} alt="" width={40} height={40} /><span className="serif wm">{s.business.name}</span></div>
             <p className="fabout">{about}</p>
-            {(tel || wa) && <div className="fcta">{tel && <a className="pill cream sm" href={`tel:${tel}`}>Call us</a>}{wa && <a className="pill cream sm" href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer">WhatsApp us</a>}</div>}
+            {(tel || vocationalTel || wa) && <div className="fcta">{tel && <a className="pill cream sm" href={`tel:${tel}`}>Call us</a>}{wa && <a className="pill cream sm" href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer">WhatsApp us</a>}</div>}
             {!s.brand.emblemUrl && showPlaceholders && <p className="small">Temporary logo from the supplied reference image. Vector artwork needed.</p>}
           </div>
           <nav className="fcol" aria-label="Our services">
@@ -35,7 +37,8 @@ export function SiteFooter({ s, whatsapp }: { s: Pick<SiteSettings, "business" |
           </nav>
           <address className="fcol fcontact">
             <b className="lab">Contact</b>
-            {c.phone && <span className="line"><span className="k">{wa && wa === tel?.replace(/\D/g, "") ? "Phone and WhatsApp" : "Phone"}</span><a href={`tel:${tel}`}>{c.phone}</a></span>}
+            {c.phone && <span className="line"><span className="k">{wa && wa === tel?.replace(/\D/g, "") ? "Everfresh (food, catering, general) · Phone and WhatsApp" : "Everfresh (food, catering, general)"}</span><a href={`tel:${tel}`}>{c.phone}</a></span>}
+{c.vocationalPhone && <span className="line"><span className="k">Vocational Institute</span><a href={`tel:${vocationalTel}`}>{c.vocationalPhone}</a></span>}
             {wa && wa !== tel?.replace(/\D/g, "") && <span className="line"><span className="k">WhatsApp</span><a href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer">+{wa}</a></span>}
             {c.email && <span className="line"><span className="k">Email</span><a href={`mailto:${c.email}`}>{c.email}</a></span>}
             {place && <span className="line"><span className="k">Address</span>{place}{c.mapConfirmed && c.address && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`} target="_blank" rel="noopener noreferrer">View on map</a>}</span>}

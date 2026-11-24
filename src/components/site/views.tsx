@@ -34,7 +34,11 @@ export function AboutView({ s }: { s: SiteSettings }) {
 }
 
 export function ContactView({ s, whatsapp }: { s: SiteSettings; whatsapp: string | null }) {
-  const hp = s.homepage.heroImages.catering; const c = s.contact; const tel = c.phone?.replace(/[^\d+]/g, ""); const faqs = s.faqs.filter((f) => f.published).sort((a, b) => a.sort - b.sort);
+  const hp = s.homepage.heroImages.catering;
+const c = s.contact;
+const tel = c.phone?.replace(/[^\d+]/g, "");
+const vocationalTel = c.vocationalPhone?.replace(/[^\d+]/g, "");
+const faqs = s.faqs.filter((f) => f.published).sort((a, b) => a.sort - b.sort);
   return (
     <>
       <section className="vhero gridbg"><div className={`wrap phero ${hp ? "has-photo" : ""}`}><div><span className="lab green">Contact Us</span><h1 className="serif page-title big2">Let&rsquo;s <em>talk.</em></h1><p className="lede">Reach us by phone, WhatsApp or the form below.</p></div><HeroPhoto photo={hp ? { src: hp.url, alt: hp.alt } : null} /></div></section>
@@ -42,7 +46,8 @@ export function ContactView({ s, whatsapp }: { s: SiteSettings; whatsapp: string
         <div>
           <h2 id="cd" className="serif green">Get in touch</h2>
           <dl className="dl crows">
-            <dt>Phone</dt><dd>{c.phone ? <a href={`tel:${tel}`}>{c.phone}</a> : <Tbc what="Phone" />}</dd>
+            <dt>Everfresh Creations (Food & Catering)</dt><dd>{c.phone ? <a href={`tel:${tel}`}>{c.phone}</a> : <Tbc what="Phone" />}</dd>
+<dt>Vocational Institute</dt><dd>{c.vocationalPhone ? <a href={`tel:${vocationalTel}`}>{c.vocationalPhone}</a> : <Tbc what="Phone" />}</dd>
             <dt>WhatsApp</dt><dd>{whatsapp ? <a href={`https://wa.me/${whatsapp}`} rel="noopener" target="_blank">Chat on WhatsApp (+{whatsapp})</a> : <Tbc what="WhatsApp number" />}</dd>
             <dt>Email</dt><dd>{c.email ? <a href={`mailto:${c.email}`}>{c.email}</a> : <Tbc what="Email" />}</dd>
             <dt>Address</dt><dd>{c.address ? <>{c.address}{c.city ? `, ${c.city}` : ""}{c.mapConfirmed && <><br /><a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`} rel="noopener" target="_blank">View on map</a></>}</> : <Tbc what="Address" />}</dd>

@@ -5,7 +5,8 @@ export const site = {
   tagline: "Always Fresh\u2026",
   applicationFeeNaira: 5000, // stated by the business; non-refundable, separate from tuition
   contact: {
-    phone: "+234 816 742 6348" as string | null, // General Everfresh Creations contact; editable in Admin > Website
+    phone: "+234 816 742 6348" as string | null,
+    vocationalPhone: "+234 703 688 5789" as string | null,
     email: "everfreshvocationalinst@gmail.com" as string | null,
     address: null as string | null,
     whatsappDigits: "2348167426348" as string | null, // General Everfresh Creations WhatsApp number; international digits only

@@ -99,15 +99,21 @@ test("change own password: needs current, enforces policy, revokes other session
 });
 
 test("site settings: defaults, validation, section isolation, supplied phone number", async () => {
-  const repo = new MemoryRepo(); const d = defaultSettings(); assert.equal(d.contact.phone, "+234 816 742 6348"); assert.equal(d.contact.whatsapp, "2348167426348"); assert.equal(d.contact.email, "everfreshvocationalinst@gmail.com"); assert.equal(d.contact.address, null); assert.equal(d.contact.mapConfirmed, false); assert.deepEqual(d.about.values, []);
+  const repo = new MemoryRepo(); const d = defaultSettings(); assert.equal(d.contact.phone, "+234 816 742 6348"); assert.equal(d.contact.vocationalPhone, "+234 703 688 5789"); assert.equal(d.contact.whatsapp, "2348167426348"); assert.equal(d.contact.email, "everfreshvocationalinst@gmail.com"); assert.equal(d.contact.address, null); assert.equal(d.contact.mapConfirmed, false); assert.deepEqual(d.about.values, []);
   const bad = (s: any, raw: any) => assert.equal(validateSection(s, raw).ok, false, JSON.stringify(raw).slice(0, 80));
   bad("contact", { phone: "call me" }); bad("contact", { email: "nope" }); bad("contact", { whatsapp: "abc" }); bad("contact", { mapConfirmed: true }); bad("contact", { social: [{ label: "X", url: "http://insecure.test" }] }); bad("business", { name: "", legalName: "" });
   bad("about", { photos: [{ url: "javascript:x", alt: "a" }] }); bad("about", { photos: [{ url: "/uploads/a.jpg", alt: "" }] }); bad("homepage", { heroImages: { food: { url: "/media/a.jpg", alt: "" } } }); bad("homepage", { featured: [{ kind: "x", title: "T", url: "/media/a.jpg", alt: "a" }] }); bad("brand", { logoUrl: "data:image/png;base64,AAAA" }); bad("faqs", { faqs: [{ q: "Q", a: "" }] });
-  const c: any = await saveSection(repo, "contact", { phone: "+234 813 557 1152", email: "Hello@Example.com", whatsapp: "0813 557 1152", address: "TEST address", mapConfirmed: true, hours: ["Mon-Fri 9-5"], social: [{ label: "Instagram", url: "https://example.com/x" }] }); assert.ok(c.ok); assert.equal(c.value.whatsapp, "2348135571152"); assert.equal(c.value.email, "hello@example.com");
+  const c: any = await saveSection(repo, "contact", { phone: "+234 813 557 1152", vocationalPhone: "+234 703 688 5789", email: "Hello@Example.com", whatsapp: "0813 557 1152", address: "TEST address", mapConfirmed: true, hours: ["Mon-Fri 9-5"], social: [{ label: "Instagram", url: "https://example.com/x" }] }); assert.ok(c.ok); assert.equal(c.value.vocationalPhone, "+234 703 688 5789"); assert.equal(c.value.whatsapp, "2348135571152"); assert.equal(c.value.email, "hello@example.com");
   const s = await getSettings(repo); assert.equal(s.contact.address, "TEST address"); assert.equal(s.business.name, "Everfresh"); assert.deepEqual(s.faqs, []);
   assert.ok((await saveSection(repo, "contact", { phone: "", whatsapp: "" })).ok); const cleared = await getSettings(repo); assert.equal(cleared.contact.phone, null); assert.equal(cleared.contact.whatsapp, null);
   const f: any = await saveSection(repo, "faqs", { faqs: [{ q: "Q1", a: "A1", published: true }] }); assert.ok(f.ok); assert.equal((await getSettings(repo)).faqs.length, 1);
   assert.ok((await saveSection(repo, "about", { intro: "TEST", values: ["a", "", "b"], photos: [{ url: "/uploads/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg", alt: "Alt" }] })).ok); assert.deepEqual((await getSettings(repo)).about.values, ["a", "b"]);
+  const oldRepo = new MemoryRepo();
+  await oldRepo.docPut("site", "main", {
+    contact: { phone: "+234 816 742 6348", email: "everfreshvocationalinst@gmail.com" },
+  });
+  const oldSettings = await getSettings(oldRepo);
+  assert.equal(oldSettings.contact.vocationalPhone, "+234 703 688 5789");
 });
 test("contact form: validation, honeypot, rate limit, replay, storage and inbox search", async () => {
   resetRateLimit(); const repo = new MemoryRepo(); let n = 0; const key = () => `cm-${String(++n).padStart(4, "0")}-abcdefghijkl`; const body = (o: any = {}) => ({ idempotencyKey: key(), name: "Test Person", phone: "08031234567", message: "Hello, I would like to know more.", ...o });

@@ -1,3 +1,4 @@
+import { site } from "@/config/site";
 // The real Ever Fresh Vocational Institute "Application form for admission".
 // One source for the on-screen form, validation AND the printable/filled PDF (src/server/voc/formpdf.ts).
 // Wording is copied exactly from the school's form, including its own spelling and punctuation. Do not "correct" it here without the school's say-so.
@@ -84,7 +85,12 @@ export const admissionForm = {
   title: "Application form for admission",
   letterhead: {
     name: "EVER FRESH VOCATIONAL INSTITUTE",
-    lines: ["No. 1, Regent Street, Abubor Nnewichi,", "Behind King's Palace Hotel, Nnewi Anambra State, Nigeria.", "+234 703 688 5789", "E-mail: everfreshvocationalinst@gmail.com"],
+    lines: [
+  "No. 1, Regent Street, Abubor Nnewichi,",
+  "Behind King's Palace Hotel, Nnewi Anambra State, Nigeria.",
+  site.contact.vocationalPhone ?? "",
+  `E-mail: ${site.contact.email}`,
+],
     motto: "Motto: Skill in all Wisdom (Dan 1:4)",
     formTitle: "APPLICATION FORM FOR ADMISSION",
     subtitle: "PROFESSIONAL EDUCATIONAL COURSES",

@@ -6,6 +6,8 @@ import type { Repo } from "../repo";
 import type { Institute } from "./institute";
 import { type Application, type Invoice, type VariantContent, invoiceTotals } from "./model";
 import { buildInvoiceLines, netOf, phaseOf } from "./pricing";
+import { site } from "../../config/site";
+
 
 const siteUrl = () => (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const link = (a: Pick<Application, "ref" | "token">) => `${siteUrl()}/application/${a.ref}/${a.token}`;
@@ -13,8 +15,19 @@ const first = (name: string) => name.trim().split(/\s+/)[0] || "there";
 const dateOf = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : null);
 const choiceLabel = (a: Application) => (a.courses?.length ? a.courses.join(", ") : a.course);
 const accLabel = (a: Application) => (a.accommodation === "hostel" ? "Hostel student" : a.accommodation === "day" ? "Day student" : null);
-const contactBlock = (i: Institute) => [i.address ? `${esc(i.name)}, ${esc(i.address)}` : esc(i.name), ...(i.phones.length ? [`Admissions: ${i.phones.map(esc).join(" &middot; ")}`] : []), "Email: everfreshvocationalinst@gmail.com", ...(i.note ? [esc(i.note)] : [])];
-const contactText = (i: Institute) => [i.address ? `${i.name}, ${i.address}` : i.name, i.phones.length ? `Admissions: ${i.phones.join(", ")}` : "", "Email: everfreshvocationalinst@gmail.com", i.note ?? ""].filter(Boolean).join("\n");
+const contactBlock = (i: Institute) => [
+  i.address ? `${esc(i.name)}, ${esc(i.address)}` : esc(i.name),
+  ...(i.phones.length ? [`Admissions: ${i.phones.map(esc).join(" &middot; ")}`] : []),
+  `Email: ${esc(site.contact.email)}`,
+  ...(i.note ? [esc(i.note)] : []),
+];
+
+const contactText = (i: Institute) => [
+  i.address ? `${i.name}, ${i.address}` : i.name,
+  i.phones.length ? `Admissions: ${i.phones.join(", ")}` : "",
+  `Email: ${site.contact.email}`,
+  i.note ?? "",
+].filter(Boolean).join("\n");
 
 /** What the student will pay in the first year, from the programme's own fee lines. */
 export function feePreview(c: VariantContent, a: Application) {

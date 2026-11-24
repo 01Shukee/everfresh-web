@@ -30,8 +30,12 @@ function Business() {
   return (
     <form className="adminform" onSubmit={save} aria-label="Business and contact details"><h2 className="serif">Business and contact</h2>{msg && <p className="alert" role="status">{msg}</p>}
       <div className="grid-f">{I(b, setB, "name", "Business name")}{I(b, setB, "legalName", "Legal name")}{I(b, setB, "tagline", "Tagline")}{I(b, setB, "notifyEmail", "Staff notification email", "New paid orders, applications, enquiries and messages are announced here. Leave blank for none.")}</div>{T(b, setB, "description", "Short description", 2)}
-      <div className="grid-f">{I(c, setC, "phone", "Phone number")}{I(c, setC, "email", "Email address")}{I(c, setC, "whatsapp", "WhatsApp number", "With country code. Used for the contact page and catering quotation requests.")}</div>
-      <div className="grid-f">{I(c, setC, "address", "Physical address")}{I(c, setC, "city", "City")}<label className="check"><input type="checkbox" checked={!!c.mapConfirmed} onChange={(e) => setC({ ...c, mapConfirmed: e.target.checked })} /> Show a map link (only when the address is confirmed)</label></div>
+<div className="grid-f">
+  {I(c, setC, "phone", "Phone: Everfresh Creations (food, catering, general)")}
+  {I(c, setC, "vocationalPhone", "Phone: Vocational Institute")}
+  {I(c, setC, "email", "General email address (for everything)")}
+  {I(c, setC, "whatsapp", "WhatsApp number", "With country code. Used for the contact page and catering quotation requests.")}
+</div>      <div className="grid-f">{I(c, setC, "address", "Physical address")}{I(c, setC, "city", "City")}<label className="check"><input type="checkbox" checked={!!c.mapConfirmed} onChange={(e) => setC({ ...c, mapConfirmed: e.target.checked })} /> Show a map link (only when the address is confirmed)</label></div>
       {T(c, setC, "hours", "Business hours (one line each, for example Mon to Fri: 9am to 6pm)", 3)}{T(c, setC, "social", "Social links (Label | https://address, one per line)", 2)}
       <button className="pill sm">Save</button></form>
   );
