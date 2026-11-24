@@ -22,3 +22,9 @@ Rate limits use the client address added by your platform's proxy (TRUSTED_PROXY
 
 ## Health
 GET /api/health returns 200 when the database answers.
+
+## Admission form: the school's own form
+
+`src/config/admissionForm.ts` holds the wording, fields and signature roles of the school's real application form (Sections A to G); `src/server/voc/formpdf.ts` draws it as two US Letter pages, point for point, for both the printable copy and the filled copy.
+**Replacing the placeholder logo:** overwrite `public/brand/admission-form-logo.jpg` with the real logo (JPEG, same file name, roughly 61 x 67 pt proportions) and set `logo.caption` to `null` in `admissionForm.ts` (that caption, "GOVERNMENT APPROVED", is part of the placeholder). Nothing else changes.
+Other switches in the same file: `showReference` (small application number and page at the foot of each PDF page), the `required` flag on each field, and `max` (longest entry that fits its printed line).

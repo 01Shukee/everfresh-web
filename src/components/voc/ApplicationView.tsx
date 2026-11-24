@@ -26,7 +26,7 @@ function FormPanel({ refNo, token, form, admitted }: { refNo: string; token: str
   return (
     <div className="formcard">
       <h2 className="serif">{done ? "Admission form" : "Next: complete your admission form"}</h2>
-      {st === "not_started" && <p>Fill it in and sign on this website, or print it, sign it and upload a photo or scan. Either way works. You will need a passport photograph, and your parent or guardian and your lawyer must sign.</p>}
+      {st === "not_started" && <p>Fill it in and sign on this website, or print it, sign it and upload a photo or scan. Either way works. You will need a passport photograph. Your sponsor, a recommender (for example a clergyman, lawyer, doctor, lecturer or senior civil servant) and a witness must also sign.</p>}
       {st === "draft" && form?.staffNote && <div className="alert" role="alert"><b>We sent your form back:</b> {form.staffNote}</div>}
       {st === "draft" && !form?.staffNote && <p>You have started your form. Continue where you stopped.</p>}
       {done && <p>{st === "school_signed" ? "The school has signed your form." : "We have received your form."} {admitted ? "" : "Now wait for our email confirming your acceptance."}</p>}

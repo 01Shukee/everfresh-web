@@ -28,3 +28,13 @@
 .afpanel h4 { margin: 0 0 6px; font-size: 1rem; }
 .afpanel ul { margin: 6px 0; padding-left: 18px; }
 .afpanel .field { margin: 8px 0; }
+
+/* the school's form, section by section */
+.af .name3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; } .af .name3 > * { min-width: 0; }
+.af .schrow { display: grid; grid-template-columns: 1fr 2fr 2fr 1fr; gap: 12px; padding-bottom: 6px; margin-bottom: 10px; border-bottom: 1px dashed var(--ef-line); } .af .schrow > * { min-width: 0; margin-bottom: 8px; }
+.af .crs { margin: 0 0 14px; padding: 10px 14px; background: var(--ef-cream); border: 1px solid var(--ef-line); border-radius: var(--radius); }
+.af .modes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.af .modes label { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; background: #fff; border: 1.5px solid var(--ef-line); border-radius: 999px; font-weight: 700; cursor: pointer; }
+.af .modes label.on { border-color: var(--ef-green-deep); background: var(--ef-green-deep); color: #fff; }
+.af .signbox { margin: 14px 0 4px; padding-top: 12px; border-top: 1px solid var(--ef-line); }
+@media (max-width: 700px) { .af .name3 { grid-template-columns: 1fr; } .af .schrow { grid-template-columns: 1fr 1fr; } .af .schrow > :nth-child(2), .af .schrow > :nth-child(3) { grid-column: 1 / -1; } }

@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { admissionForm, type FormField, type SignRole } from "../../config/admissionForm";
+import { admissionForm, allFormFields, SIGN_ROLES, type FormField, type SignRole } from "../../config/admissionForm";
 import { variantById } from "../../config/vocational";
 import { button, esc, para, refBadge } from "../emailTemplate";
 import { sniffImage } from "../media";
@@ -16,7 +16,7 @@ import type { Application } from "./model";
  * To move files to private object storage later, only putFile / dropFile / readFileBytes below need to change.
  */
 const COL = "aform"; const FCOL = "aformfile";
-export const SIGN_ROLES: SignRole[] = ["applicant", "guardian", "lawyer"];
+export { SIGN_ROLES };
 const LIMITS = { passport: 600_000, signature: 120_000, scan: 2_000_000, scans: 3 };
 const MIME: Record<string, string> = { jpg: "image/jpeg", png: "image/png", webp: "image/webp" };
 
@@ -38,7 +38,7 @@ const fail = (status: number, code: string, message: string, fieldErrors?: Recor
 const isRec = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const clean = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ").replace(/[ \t]+/g, " ").trim().slice(0, max) : "");
 const nowOf = (d: VocDeps) => d.now?.() ?? new Date();
-export const allFields = (): FormField[] => admissionForm.sections.flatMap((s) => s.fields);
+export const allFields = (): FormField[] => allFormFields;
 export const getForm = (repo: Repo, ref: string) => repo.docGet<AdmissionFormRec>(COL, ref);
 
 const blank = (ref: string, now: Date): AdmissionFormRec => ({ ref, template: admissionForm.version, status: "draft", mode: null, data: {}, signatures: {}, passportId: null, scanIds: [], files: [], confirmed: false, staffNote: null, returnedAt: null, createdAt: now.toISOString(), updatedAt: now.toISOString(), submittedAt: null, schoolSignedAt: null });
@@ -52,7 +52,7 @@ function toView(a: Application, rec: AdmissionFormRec | null): FormViewData {
   const v = variantById(a.variantId);
   return {
     ref: a.ref, programme: v ? `${v.label}, ${v.durationLabel}` : "", template: admissionForm.version, isPlaceholder: admissionForm.isPlaceholder, status: rec?.status ?? "draft", mode: rec?.mode ?? null, data: mergedData(a, rec),
-    signed: { applicant: !!rec?.signatures.applicant, guardian: !!rec?.signatures.guardian, lawyer: !!rec?.signatures.lawyer }, passport: !!rec?.passportId,
+    signed: Object.fromEntries(SIGN_ROLES.map((r) => [r, !!rec?.signatures[r]])) as Record<SignRole, boolean>, passport: !!rec?.passportId,
     scans: (rec?.files ?? []).filter((f) => f.kind === "scan").map((f) => ({ id: f.id, name: f.name, size: f.size })),
     confirmed: rec?.confirmed ?? false, staffNote: rec?.staffNote ?? null, submittedAt: rec?.submittedAt ?? null, schoolSignedAt: rec?.schoolSignedAt ?? null,
   };
@@ -95,7 +95,6 @@ export async function formSummary(repo: Repo, ref: string): Promise<FormSummary>
 
 function formatError(f: FormField, v: string, now: Date): string | null {
   if (f.kind === "tel") return normalisePhone(v) ? null : "Enter a valid Nigerian mobile number.";
-  if (f.kind === "email") return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v) ? null : "Enter a valid email address.";
   if (f.kind === "date") { const d = new Date(v + "T00:00:00Z"); return /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(d.getTime()) && d <= now && now.getUTCFullYear() - d.getUTCFullYear() <= 100 ? null : "Enter a valid date."; }
   if (f.kind === "select") return f.options?.includes(v) ? null : "Choose one of the options.";
   return null;
@@ -115,10 +114,11 @@ async function saveImpl(deps: VocDeps, ref: string, token: string, raw: unknown,
   if (rec.status !== "draft") return fail(409, "LOCKED", "This form has already been submitted. If something needs correcting, please contact us.");
   const r = isRec(raw) ? raw : {}; const input = isRec(r.data) ? r.data : {}; const errors: Record<string, string> = {}; const data: Record<string, string> = {};
   for (const f of allFields()) {
-    const v = clean(input[f.id], f.kind === "textarea" ? 600 : 160); data[f.id] = v;
+    const v = clean(input[f.id], f.max ?? 160); data[f.id] = v;
     if (v) { const e = formatError(f, v, now); if (e) errors[f.id] = e; } else if (submit && f.required) errors[f.id] = "This is required.";
   }
-  const sigIn = isRec(r.signatures) ? r.signatures : {}; const newSigs: Partial<Record<SignRole, Buffer | null>> = {};
+    if (submit && !admissionForm.C.courses.some((c) => data[c.id])) errors.courses = "Mark at least one course and your mode of study.";
+      const sigIn = isRec(r.signatures) ? r.signatures : {}; const newSigs: Partial<Record<SignRole, Buffer | null>> = {};
   for (const role of SIGN_ROLES) {
     const s = sigIn[role];
     if (s === null) newSigs[role] = null;

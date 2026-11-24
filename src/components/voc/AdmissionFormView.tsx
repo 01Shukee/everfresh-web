@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { admissionForm, type FormField, type SignRole } from "@/config/admissionForm";
+import { admissionForm, applicantName, headingCase, type FormField, type SignRole } from "@/config/admissionForm";
 import type { FormViewData } from "@/server/voc/form";
 import { SignaturePad } from "./SignaturePad";
 import "./admission-form.css";
@@ -25,11 +25,10 @@ const when = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en
 function FieldInput({ f, value, err, onChange }: { f: FormField; value: string; err?: string; onChange: (v: string) => void }) {
   const id = `f-${f.id}`;
   return (
-    <div className={`field ${err ? "bad" : ""} ${f.kind === "textarea" ? "span2" : ""}`}>
+    <div className={`field ${err ? "bad" : ""}`}>
       <label htmlFor={id}>{f.label} {f.required && <span className="req">(required)</span>}</label>
-      {f.kind === "textarea" ? <textarea id={id} rows={3} value={value} onChange={(e) => onChange(e.target.value)} aria-invalid={!!err} />
-        : f.kind === "select" ? <select id={id} value={value} onChange={(e) => onChange(e.target.value)} aria-invalid={!!err}><option value="">Choose&hellip;</option>{f.options?.map((o) => <option key={o}>{o}</option>)}</select>
-        : <input id={id} type={f.kind} inputMode={f.kind === "tel" ? "tel" : f.kind === "email" ? "email" : undefined} value={value} onChange={(e) => onChange(e.target.value)} aria-invalid={!!err} />}
+      {f.kind === "select" ? <select id={id} value={value} onChange={(e) => onChange(e.target.value)} aria-invalid={!!err}><option value="">Choose&hellip;</option>{f.options?.map((o) => <option key={o}>{o}</option>)}</select>
+        : <input id={id} type={f.kind} inputMode={f.kind === "tel" ? "tel" : undefined} maxLength={f.max} value={value} onChange={(e) => onChange(e.target.value)} aria-invalid={!!err} />}
       {f.hint && <p className="hint">{f.hint}</p>}{err && <p className="err">{err}</p>}
     </div>
   );
@@ -41,6 +40,13 @@ export function AdmissionFormView({ refNo, token, initial }: { refNo: string; to
   const [errs, setErrs] = useState<Record<string, string>>({}); const [msg, setMsg] = useState(""); const [ok, setOk] = useState(""); const [busy, setBusy] = useState(""); const [photoUrl, setPhotoUrl] = useState("");
   const [path, setPath] = useState<"" | "online" | "print">(initial.mode === "print" || initial.scans.length > 0 ? "print" : initial.passport || initial.signed.applicant ? "online" : "");
   const base = `/api/applications/${refNo}/form`; const back = `/application/${refNo}/${token}`; const pdfUrl = `${base}/pdf?t=${encodeURIComponent(token)}`;
+
+  const { A, B, C, D, E, F, G } = admissionForm; const name = applicantName(data);
+  const fi = (f: FormField) => <FieldInput key={f.id} f={f} value={data[f.id] ?? ""} err={errs[f.id]} onChange={(v) => setData((p) => ({ ...p, [f.id]: v }))} />;
+  const sigBlock = (role: SignRole) => { const b = admissionForm.signBlocks.find((x) => x.role === role)!; return (
+    <div className="signbox"><p className="small"><b>{b.title}.</b> {b.hand}</p>
+      <SignaturePad label={b.title} saved={view.signed[role]} pending={typeof sigs[role] === "string"} onChange={(u) => setSigs((p) => ({ ...p, [role]: u }))} />
+      {errs[`sig_${role}`] && <p className="err">{errs[`sig_${role}`]}</p>}</div>); };
 
   const call = async (url: string, method: "POST" | "PUT", body: object): Promise<{ ok: boolean; json: any }> => {
     try { const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, ...body }) }); return { ok: r.ok, json: await r.json().catch(() => ({})) }; }
@@ -92,25 +98,36 @@ export function AdmissionFormView({ refNo, token, initial }: { refNo: string; to
         </div></fieldset>
 
       {path === "online" && <>
-        <p className="small">You will need a passport photograph. Your parent or guardian and your lawyer each sign in their own box below: hand them the phone or computer when it is their turn.</p>
-        {admissionForm.sections.map((s) => (
-          <section key={s.id} className="fsec" aria-labelledby={`h-${s.id}`}><h2 id={`h-${s.id}`} className="serif">{s.title}</h2>{s.intro && <p className="small">{s.intro}</p>}
-            <div className="grid-f2">{s.fields.map((f) => <FieldInput key={f.id} f={f} value={data[f.id] ?? ""} err={errs[f.id]} onChange={(v) => setData((p) => ({ ...p, [f.id]: v }))} />)}</div></section>))}
+        <p className="small">You will need a passport photograph. This is the school&rsquo;s own form, section by section. Your sponsor, your recommender and your witness each sign in their own box: hand them the phone or computer when it is their turn.</p>
+        <section className="fsec" aria-labelledby="h-A"><h2 id="h-A" className="serif">{headingCase(A.title)}</h2>
+          <div className="name3">{A.nameFields.map(fi)}</div><div className="grid-f2">{A.fields.map(fi)}</div></section>
         <section className="fsec"><h2 className="serif">{admissionForm.passportLabel}</h2>
           <div className="passrow"><div className="passportbox">{photoUrl ? <img src={photoUrl} alt="Your passport photograph" /> : <span className="small">{view.passport ? "Photograph added" : "No photograph yet"}</span>}</div>
             <div><label className="pill ghost sm">{busy === "passport" ? "Uploading\u2026" : view.passport ? "Replace photograph" : "Add photograph"}<input className="sr" type="file" accept="image/*" onChange={uploadPassport} disabled={!!busy} /></label>
               <p className="hint">A clear, recent, front-facing photograph on a plain background.</p>{errs.passport && <p className="err">{errs.passport}</p>}</div></div></section>
-        {admissionForm.signBlocks.map((b) => (
-          <section key={b.role} className="fsec"><h2 className="serif">{b.title}</h2><p>{b.declaration}</p>
-            <p className="small">Name: <b>{data[b.nameField] || "(fill in the name above first)"}</b></p>
-            <SignaturePad label={`Signature: ${b.title}`} saved={view.signed[b.role]} pending={typeof sigs[b.role] === "string"} onChange={(u) => setSigs((p) => ({ ...p, [b.role]: u }))} />
-            {errs[`sig_${b.role}`] && <p className="err">{errs[`sig_${b.role}`]}</p>}</section>))}
+        <section className="fsec" aria-labelledby="h-B"><h2 id="h-B" className="serif">{headingCase(B.title)}</h2>
+          {B.rows.map((r, i) => <div key={i} className="schrow" role="group" aria-label={`School ${i + 1}`}>{r.map(fi)}</div>)}
+          <p className="hint">{B.note}</p></section>
+        <section className="fsec" aria-labelledby="h-C"><h2 id="h-C" className="serif">{headingCase(C.title)}</h2><p className="small">{C.instruction}</p>
+          {C.courses.map((c, i) => { const cur = data[c.id] ?? ""; return (
+            <div key={c.id} className="crs" role="radiogroup" aria-label={c.name}><b>{i + 1}. {headingCase(c.name)}</b>
+              <div className="modes">{["", ...C.modes].map((m) => <label key={m} className={cur === m ? "on" : ""}><input type="radio" name={`c-${c.id}`} checked={cur === m} onChange={() => setData((p) => ({ ...p, [c.id]: m }))} />{m || "Not applying"}</label>)}</div></div>); })}
+          {errs.courses && <p className="err">{errs.courses}</p>}</section>
+        <section className="fsec" aria-labelledby="h-D"><h2 id="h-D" className="serif">{headingCase(D.title)}</h2><p className="small">{D.subtitle}</p>
+          <p>{D.lead} {D.leadLine2} <b>{name || "(fill in Section A first)"}</b></p><div className="grid-f2">{D.fields.map(fi)}</div>{sigBlock("sponsor")}</section>
+        <section className="fsec" aria-labelledby="h-E"><h2 id="h-E" className="serif">{headingCase(E.title)}</h2><p className="small">{E.subtitle}</p>
+          <p>{E.before} <b>{data.knownYears || "___"}</b> {E.after} {E.line2}</p><div className="grid-f2">{E.fields.map(fi)}</div>{sigBlock("recommender")}</section>
+        <section className="fsec" aria-labelledby="h-F"><h2 id="h-F" className="serif">{headingCase(F.title)}</h2><p>{F.lines.join(" ")}</p></section>
+        <section className="fsec" aria-labelledby="h-G"><h2 id="h-G" className="serif">{headingCase(G.title)}</h2><p className="small">{G.subtitle}</p>
+          <p>{G.paragraph.join(" ")}</p><p><b>{name || "(fill in Section A first)"}</b> {G.paragraph2.join(" ")}</p>
+          <p className="small">Name in full (of the applicant): <b>{name || "(fill in Section A first)"}</b></p>{sigBlock("applicant")}
+          <div className="grid-f2">{G.fields.map(fi)}</div>{sigBlock("witness")}</section>
         <section className="fsec"><label className="check"><input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} /> {admissionForm.confirmation}</label>{errs.confirmed && <p className="err">{errs.confirmed}</p>}</section>
         <div className="acts"><button className="pill" disabled={!!busy} onClick={() => save(true)}>{busy === "submit" ? "Submitting\u2026" : "Submit form"}</button><button className="pill ghost" disabled={!!busy} onClick={() => save(false)}>{busy === "save" ? "Saving\u2026" : "Save and continue later"}</button><Link className="linkbtn" href={back}>Back to your application</Link></div>
       </>}
 
       {path === "print" && <>
-        <section className="fsec"><h2 className="serif">1. Download and print the form</h2><p>Your name and programme are already filled in. Fill in the rest by hand, then have your parent or guardian, your lawyer and yourself sign.</p>
+        <section className="fsec"><h2 className="serif">1. Download and print the form</h2><p>Any details we already have (such as your phone number) are filled in. Fill in the rest by hand, then have your sponsor, your recommender, yourself and your witness sign.</p>
           <a className="pill" href={`${pdfUrl}&blank=1`} target="_blank" rel="noopener">Download printable form (PDF)</a></section>
         <section className="fsec"><h2 className="serif">2. Upload the signed form</h2><p>Take a clear photo of each page, or upload a PDF scan.</p>
           <label className="pill ghost sm">{busy === "scan" ? "Uploading\u2026" : "Add a photo or scan"}<input className="sr" type="file" accept="image/*,application/pdf" onChange={uploadScan} disabled={!!busy || view.scans.length >= 3} /></label>
