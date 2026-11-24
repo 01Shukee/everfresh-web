@@ -133,7 +133,7 @@ export async function admissionFormPdf(app: Application, rec: AdmissionFormRec |
     const mode = admissionForm.C.modes.findIndex((m) => m === v(c.id)); if (mode >= 0) centered("X", (cx[mode + 2] + cx[mode + 3]) / 2, mid + 4, bold, 12, ENTRY);
   });
   // The school's form has no photograph box. A photograph the applicant uploaded online is placed in the empty space below the table; the printable form stays exactly as the school's.
-  if (photo) { const bw = 62, bh = 80, bxp = 554.4 - bw, byp = 700; page.drawRectangle({ x: bxp, y: Y(byp + bh), width: bw, height: bh, borderColor: INK, borderWidth: 0.59 }); const s = Math.min((bw - 4) / photo.width, (bh - 4) / photo.height); page.drawImage(photo, { x: bxp + (bw - photo.width * s) / 2, y: Y(byp + bh) + (bh - photo.height * s) / 2, width: photo.width * s, height: photo.height * s }); }
+  if (photo) { const bw = 58, bh = 74, bxp = 554.4 - bw, byp = 203; page.drawRectangle({ x: bxp, y: Y(byp + bh), width: bw, height: bh, borderColor: INK, borderWidth: 0.59 }); const s = Math.min((bw - 4) / photo.width, (bh - 4) / photo.height); page.drawImage(photo, { x: bxp + (bw - photo.width * s) / 2, y: Y(byp + bh) + (bh - photo.height * s) / 2, width: photo.width * s, height: photo.height * s }); }
   footer(1);
 
   // ================================================================== PAGE 2
