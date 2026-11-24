@@ -154,7 +154,7 @@ export function ApplyWizard({ options, initialVariant, resume, initial }: {
               {(["regular", "intensive"] as const).map((c) => (
                 <label key={c} className={cat === c ? "on" : ""}>
                   <input type="radio" name="cat" checked={cat === c} onChange={() => { setCat(c); setPicked([]); setAcc(""); setVariant(c === "regular" ? "regular-3y" : ""); }} />
-                  {c === "regular" ? "Regular Programme (3 years)" : "Intensive Programme"}
+                  {c === "regular" ? "Regular Programme (2 years)" : "Intensive Programme"}
                 </label>
               ))}
             </div>

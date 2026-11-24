@@ -34,8 +34,8 @@ export function RegularView({ c, photo }: { c: VariantContent; photo?: { src: st
     <>
       <section className="vhero gridbg"><div className={`wrap phero ${photo ? "has-photo" : ""}`}><div>
         <span className="lab green">Vocational Studies &middot; Regular Programme</span>
-        <h1 className="serif page-title big2">Three years of <em>practical training.</em></h1>
-        <p className="lede">The Regular Programme runs for 3 years.</p>
+        <h1 className="serif page-title big2">Two years of <em>practical training.</em></h1>
+        <p className="lede">The Regular Programme runs for 2 years.</p>
       </div><HeroPhoto photo={photo} /></div></section>
       <section className="sec gridbg"><div className="wrap">{c.published ? <VariantBody c={c} /> : <div className="empty"><p className="serif empty-title">Programme details are being prepared.</p><p>Course information, admission requirements and fees will appear here once the institution confirms them.</p></div>}</div></section>
     </>

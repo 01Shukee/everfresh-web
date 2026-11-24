@@ -1,6 +1,6 @@
 // Vocational Studies configuration. Only facts supplied by the business are set here; everything else is null/empty.
 export const VARIANTS = [
-  { id: "regular-3y", programme: "regular", label: "Regular Programme", durationLabel: "3 years", months: 36 },
+  { id: "regular-3y", programme: "regular", label: "Regular Programme", durationLabel: "2 years", months: 24 },
   { id: "intensive-1m", programme: "intensive", label: "Intensive Programme", durationLabel: "1 month", months: 1 },
   { id: "intensive-3m", programme: "intensive", label: "Intensive Programme", durationLabel: "3 months", months: 3 },
   { id: "intensive-6m", programme: "intensive", label: "Intensive Programme", durationLabel: "6 months", months: 6 },

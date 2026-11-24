@@ -12,7 +12,7 @@ export function ProgrammeCards({ content }: { content: Record<string, VariantCon
       <span className="lab green">Choose your pathway</span><h2 id="hp" className="serif green">Find the programme that fits.</h2>
       <div className="progcards">
         <article className="pcard">
-          <span className="lab">Regular Programme</span><h3 className="serif">3 years</h3>
+          <span className="lab">Regular Programme</span><h3 className="serif">2 years</h3>
           <p>{reg.published && reg.summary ? reg.summary : <Tbc what="Programme summary" />}</p>
           <dl className="mini"><dt>Tuition</dt><dd>{tuitionText(reg) ?? <span className="tag">To be confirmed</span>}</dd></dl>
           <div className="acts"><Link href="/vocational-studies/regular" className="pill">View programme <span className="dot" aria-hidden="true">&rarr;</span></Link>{apply("regular-3y", reg.open)}</div>

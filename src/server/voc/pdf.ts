@@ -24,8 +24,8 @@ export interface Doc { title: string; no: string; issued: string | null; blocks:
 const date = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-NG", { dateStyle: "long", timeStyle: "short", timeZone: "Africa/Lagos" }) + " (WAT)" : "-");
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-NG", { dateStyle: "long", timeZone: "Africa/Lagos" }) : "-");
 const progLine = (a: Application) => { const v = variantById(a.variantId)!; const picks = a.courses?.length ? a.courses.join(", ") : a.course; const acc = a.accommodation === "hostel" ? "hostel student" : a.accommodation === "day" ? "day student" : null; const extra = [picks, acc].filter(Boolean).join("; "); return `${v.label}, ${v.durationLabel}${extra ? ` (${extra})` : ""}`; };
-const contactText = () => [site.contact.address, site.contact.phone, site.contact.email].filter(Boolean).join("  -  ");
-const footerText = () => [site.legalName, site.contact.address, site.contact.phone, site.contact.email].filter(Boolean).join(" - ");
+const contactText = () => [site.contact.address, "+234 703 688 5789", site.contact.email].filter(Boolean).join("  -  ");
+const footerText = () => [site.legalName, site.contact.address, "+234 703 688 5789", site.contact.email].filter(Boolean).join(" - ");
 const nice = (t: string) => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();   // "PAYMENT RECEIPT" -> "Payment receipt"
 
 let logoBytes: Uint8Array | null | undefined;

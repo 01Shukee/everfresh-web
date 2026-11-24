@@ -99,7 +99,7 @@ test("change own password: needs current, enforces policy, revokes other session
 });
 
 test("site settings: defaults, validation, section isolation, supplied phone number", async () => {
-  const repo = new MemoryRepo(); const d = defaultSettings(); assert.equal(d.contact.phone, "+2348135571152"); assert.equal(d.contact.whatsapp, "2348135571152"); assert.equal(d.contact.email, null); assert.equal(d.contact.address, null); assert.equal(d.contact.mapConfirmed, false); assert.deepEqual(d.about.values, []);
+  const repo = new MemoryRepo(); const d = defaultSettings(); assert.equal(d.contact.phone, "+234 816 742 6348"); assert.equal(d.contact.whatsapp, "2348167426348"); assert.equal(d.contact.email, "everfreshvocationalinst@gmail.com"); assert.equal(d.contact.address, null); assert.equal(d.contact.mapConfirmed, false); assert.deepEqual(d.about.values, []);
   const bad = (s: any, raw: any) => assert.equal(validateSection(s, raw).ok, false, JSON.stringify(raw).slice(0, 80));
   bad("contact", { phone: "call me" }); bad("contact", { email: "nope" }); bad("contact", { whatsapp: "abc" }); bad("contact", { mapConfirmed: true }); bad("contact", { social: [{ label: "X", url: "http://insecure.test" }] }); bad("business", { name: "", legalName: "" });
   bad("about", { photos: [{ url: "javascript:x", alt: "a" }] }); bad("about", { photos: [{ url: "/uploads/a.jpg", alt: "" }] }); bad("homepage", { heroImages: { food: { url: "/media/a.jpg", alt: "" } } }); bad("homepage", { featured: [{ kind: "x", title: "T", url: "/media/a.jpg", alt: "a" }] }); bad("brand", { logoUrl: "data:image/png;base64,AAAA" }); bad("faqs", { faqs: [{ q: "Q", a: "" }] });

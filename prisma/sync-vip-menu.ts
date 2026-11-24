@@ -14,6 +14,7 @@ const byOrder = (a: MenuItem, b: MenuItem) => (a.sort ?? 0) - (b.sort ?? 0) || a
 type Special = { name: string; price: number; description: string; soup?: boolean; imageFrom?: string };
 const SPECIALS: Special[] = [
   { name: "Chicken and chips", price: 12_000, description: "" },
+  { name: "Pineapple Rice", price: 5_000, description: "A flavourful rice dish prepared with pineapple." },
   { name: "Fisher soup (4 mini pots)", price: 35_000, description: "Special soup, served in 4 mini pots.", soup: true },
   { name: "Ofe Owerri (4 mini pots)", price: 35_000, description: "Special soup, served in 4 mini pots.", soup: true },
   { name: "Oha soup (4 mini pots)", price: 25_000, description: "Special soup, served in 4 mini pots.", soup: true, imageFrom: "Oha soup" },

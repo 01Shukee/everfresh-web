@@ -43,4 +43,12 @@
 /* compulsory fields */
 .af .req { color: var(--ef-red); font-weight: 800; }
 .af .legend { padding: 10px 14px; margin: 0 0 18px; background: #fff; border: 1.5px solid var(--ef-red); border-radius: var(--radius); }
-.af .field label .req { margin-left: 2px; }
+.af .field label .req { margin-left: 2px; }/* Keep the passport photograph at the top-right of Section A. */
+.af .personal-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 18px; margin-bottom: 16px; }
+.af .personal-head > h2 { margin: 0; }
+.af .passport-upload { width: min(100%, 250px); }
+.af .passport-upload h3 { margin: 0 0 8px; font-size: 1rem; color: var(--ef-green-deep); }
+.af .passport-upload .passrow { align-items: flex-start; gap: 10px; }
+.af .passport-upload .passportbox { width: 76px; flex: 0 0 76px; }
+.af .passport-upload .hint { margin: 6px 0 0; font-size: .78rem; }
+@media (max-width: 560px) { .af .personal-head { grid-template-columns: 1fr; } .af .passport-upload { width: 100%; } }

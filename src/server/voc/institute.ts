@@ -2,7 +2,7 @@ import type { Repo } from "../repo";
 
 /** Institute details shown in emails and PDFs. Editable in Admin > Vocational studies > Institute details. */
 export interface Institute { name: string; address: string | null; phones: string[]; note: string | null }
-export const DEFAULT_INSTITUTE: Institute = { name: "Vocational Institute", address: null, phones: [], note: null };
+export const DEFAULT_INSTITUTE: Institute = { name: "Everfresh Vocational Institute", address: null, phones: ["+234 703 688 5789"], note: null };
 export async function getInstitute(repo: Repo): Promise<Institute> { return { ...DEFAULT_INSTITUTE, ...((await repo.docGet<Institute>("settings", "institute")) ?? {}) }; }
 const s = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/[\u0000-\u001F\u007F]/g, " ").trim().slice(0, max) : "");
 export async function saveInstitute(repo: Repo, raw: unknown): Promise<{ status: number; body: unknown }> {

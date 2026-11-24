@@ -84,7 +84,7 @@ export const admissionForm = {
   title: "Application form for admission",
   letterhead: {
     name: "EVER FRESH VOCATIONAL INSTITUTE",
-    lines: ["No. 1, Regent Street, Abubor Nnewichi,", "Behind King's Palace Hotel, Nnewi Anambra State, Nigeria.", "08035006435, 08038472422, 08133300777", "E-mail: everfreshcreations@yahoo.com"],
+    lines: ["No. 1, Regent Street, Abubor Nnewichi,", "Behind King's Palace Hotel, Nnewi Anambra State, Nigeria.", "+234 703 688 5789", "E-mail: everfreshvocationalinst@gmail.com"],
     motto: "Motto: Skill in all Wisdom (Dan 1:4)",
     formTitle: "APPLICATION FORM FOR ADMISSION",
     subtitle: "PROFESSIONAL EDUCATIONAL COURSES",

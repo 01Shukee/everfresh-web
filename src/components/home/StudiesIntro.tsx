@@ -5,7 +5,7 @@ import { Tag } from "@/components/ui/Tag";
 import { feeNote } from "@/lib/voc-view";
 
 const programmes = [
-  { name: "Regular programme", length: "3 years", fee: "regular" as const },
+  { name: "Regular programme", length: "2 years", fee: "regular" as const },
   { name: "Intensive programme", length: "1 month to 1 year, plus special courses", fee: "intensive" as const },
 ];
 

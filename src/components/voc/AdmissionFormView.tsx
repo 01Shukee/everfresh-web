@@ -119,13 +119,17 @@ export function AdmissionFormView({ refNo, token, initial }: { refNo: string; to
 
       {path === "online" && <>
         <p className="legend"><span className="req">*</span> marks a compulsory field. <b>Every part of this form must be filled in</b>; if something does not apply to you, write N/A (or None). In Section B only the first school is compulsory, and in Section C you must choose at least one course. You will need a passport photograph. This is the school&rsquo;s own form, section by section. Your sponsor, your recommender and your witness each sign in their own box: hand them the phone or computer when it is their turn.</p>
-        <section className="fsec" aria-labelledby="h-A"><h2 id="h-A" className="serif">{headingCase(A.title)}</h2>
-          <div className="name3">{A.nameFields.map(fi)}</div><div className="grid-f2">{A.fields.map(fi)}</div></section>
-        <section className="fsec"><h2 className="serif">{admissionForm.passportLabel} <span className="req" aria-hidden="true">*</span></h2>
-          <div className="passrow"><div className="passportbox">{photoUrl ? <img src={photoUrl} alt="Your passport photograph" /> : <span className="small">{view.passport ? "Photograph added" : "No photograph yet"}</span>}</div>
-            <div><label className="pill ghost sm">{busy === "passport" ? "Uploading\u2026" : view.passport ? "Replace photograph" : "Add photograph"}<input className="sr" type="file" accept="image/*" onChange={uploadPassport} disabled={!!busy} /></label>
-              <p className="hint">A clear, recent, front-facing photograph on a plain background.</p>{errs.passport && <p className="err">{errs.passport}</p>}</div></div></section>
-        <section className="fsec" aria-labelledby="h-B"><h2 id="h-B" className="serif">{headingCase(B.title)}</h2>
+        <section className="fsec" aria-labelledby="h-A">
+          <div className="personal-head">
+            <h2 id="h-A" className="serif">{headingCase(A.title)}</h2>
+            <div className="passport-upload">
+              <h3 className="serif">{admissionForm.passportLabel} <span className="req" aria-hidden="true">*</span></h3>
+              <div className="passrow"><div className="passportbox">{photoUrl ? <img src={photoUrl} alt="Your passport photograph" /> : <span className="small">{view.passport ? "Photograph added" : "No photograph yet"}</span>}</div>
+                <div><label className="pill ghost sm">{busy === "passport" ? "Uploading\u2026" : view.passport ? "Replace" : "Add photo"}<input className="sr" type="file" accept="image/*" onChange={uploadPassport} disabled={!!busy} /></label>
+                  <p className="hint">Recent, front-facing photo on a plain background.</p>{errs.passport && <p className="err">{errs.passport}</p>}</div></div>
+            </div>
+          </div>
+          <div className="name3">{A.nameFields.map(fi)}</div><div className="grid-f2">{A.fields.map(fi)}</div></section>        <section className="fsec" aria-labelledby="h-B"><h2 id="h-B" className="serif">{headingCase(B.title)}</h2>
           {B.rows.map((r, i) => <div key={i} className="schrow" role="group" aria-label={`School ${i + 1}`}>{r.map(fi)}</div>)}
           <p className="hint">{B.note}</p></section>
         <section className="fsec" aria-labelledby="h-C"><h2 id="h-C" className="serif">{headingCase(C.title)} <span className="req" aria-hidden="true">*</span></h2><p className="small">{C.instruction} Choose at least one course.</p>
