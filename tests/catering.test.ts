@@ -25,11 +25,11 @@ test("guests and budget handling", () => {
   assert.equal(parseBudget("₦500,000"), 50_000_000); assert.equal(parseBudget("500000"), 50_000_000); assert.equal(parseBudget(""), null); assert.equal(parseBudget("12.5"), "invalid"); assert.equal(parseBudget("lots"), "invalid"); assert.equal(parseBudget("-1"), "invalid");
   assert.ok(errs(form({ budget: "lots" })).budget); assert.equal((validateEnquiry(form({ budget: "N750,000" }), NOW, null) as any).value.budgetKobo, 75_000_000);
 });
-test("date handling: today ok, past rejected, invalid calendar dates, leap day, 3-year limit, Lagos midnight boundary", () => {
+test("date handling: today ok, past rejected, invalid calendar dates, leap day, 2-year limit, Lagos midnight boundary", () => {
   assert.equal(lagosToday(NOW), "2026-10-10"); assert.ok(!errs(form({ eventDate: "2026-10-10" })).eventDate); assert.ok(errs(form({ eventDate: "2026-10-09" })).eventDate);
   for (const d of ["2026-02-30", "2026-13-01", "2026-00-10", "12/12/2026", "2026-1-5", "garbage", "2026-12-12T10:00", "0000-00-00"]) assert.ok(errs(form({ eventDate: d })).eventDate, d);
   assert.equal(validDate("2028-02-29"), true); assert.equal(validDate("2027-02-29"), false); assert.ok(!errs(form({ eventDate: "2028-02-29" })).eventDate);
-  assert.ok(errs(form({ eventDate: "2030-01-01" })).eventDate); assert.ok(!errs(form({ eventDate: "2029-10-10" })).eventDate);
+  assert.ok(errs(form({ eventDate: "2029-01-01" })).eventDate); assert.ok(!errs(form({ eventDate: "2028-10-10" })).eventDate);
   const late = new Date("2026-10-10T23:30:00Z"); assert.equal(lagosToday(late), "2026-10-11"); assert.ok((validateEnquiry(form({ eventDate: "2026-10-10" }), late, null) as any).fieldErrors.eventDate); assert.ok(validateEnquiry(form({ eventDate: "2026-10-11" }), late, null).ok);
 });
 test("event types: only configured categories are accepted; free text allowed when none configured", () => {

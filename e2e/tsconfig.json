@@ -9,6 +9,7 @@
       "@/*": ["../src/*"],
       "next/link": ["stubs/link.tsx"],
       "next/navigation": ["stubs/nav.ts"]
-    }
+    },
+    "baseUrl": "."
   }
 }

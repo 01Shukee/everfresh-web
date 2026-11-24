@@ -16,7 +16,7 @@
 | Menu items and categories | Everfresh's real menu with the supplied prices (17 dishes: rice and pasta, local dishes, soups and swallows, fish) with a protein add-on (Chicken ₦4,000, Ice fish ₦3,000, Beef ₦2,000, Turkey ₦7,000), plus 10 sample cakes. Flyer items without a price are not seeded: add them in Admin > Menu items |
 | Delivery and pickup | 3 delivery areas with fees, 1 pickup point, scheduling rules, promo `WELCOME10` (**switched off**) |
 | Website: about, homepage, FAQs, hours | Text, 8 about photos, 3 hero photos, 8 featured photos, 5 benefits, 7 FAQs, opening hours |
-| Vocational studies | The Vocational Institute (Nnewi): Regular (3 years, day or hostel, with the exact first-year and yearly fees) and Intensive in five options (1 month priced per course, 3 months, 6 months, 1 year with 2 chosen courses, special courses), requirements to bring, institute details, 46 photos, 2 **unpublished** testimonial drafts. Applications are **open** |
+| Vocational studies | The Vocational Institute (Nnewi): Regular (2 years, day or hostel, with the exact first-year and yearly fees) and Intensive in five options (1 month priced per course, 3 months, 6 months, 1 year with 2 chosen courses, special courses), requirements to bring, institute details, 46 photos, 2 **unpublished** testimonial drafts. Applications are **open** |
 | VIP menu | A starter VIP menu (8 sample items, static / read-only mode) at `/vip`, with its own categories, settings and orders |
 | Event catering | 6 event categories, 6 services, 5 styles, 25 gallery photos |
 

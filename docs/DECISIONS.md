@@ -3,7 +3,7 @@
 ## Confirmed
 - Payment gateway: Bachs (bachs.io). Sandbox first; no live charges without explicit authorisation.
 - Food: guest checkout allowed (details required); scheduled orders allowed (rules still to be supplied).
-- Vocational: Regular 3 years; Intensive 1, 3 or 6 months. Application-form fee **₦5,000**, non-refundable, separate from tuition. No instalments. Tuition may be paid online. Applicants track via a private link/login.
+- Vocational: Regular 2 years; Intensive 1, 3 or 6 months. Application-form fee **₦5,000**, non-refundable, separate from tuition. No instalments. Tuition may be paid online. Applicants track via a private link/login.
 - Language: English at launch; Igbo later (Claude drafts; a fluent speaker reviews).
 - Stack approved: Next.js, TypeScript, PostgreSQL, managed hosting. Everfresh owns the domain; the company pays for hosting, email and gateway accounts. No launch date.
 - Phone and WhatsApp for now: +2348135571152.

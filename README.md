@@ -45,7 +45,7 @@ Without `DATABASE_URL` (development only) a temporary in-memory store is used.
 Order emails/SMS, image upload, promo and delivery-zone admin screens, refunds initiated from the admin (refund in the Bachs dashboard; webhook updates status), Auth.js role-based admin accounts, receipts PDF.
 
 ## Vocational Studies (Phase 4)
-Public: `/vocational-studies`, `/vocational-studies/regular` (3 years), `/vocational-studies/intensive` (1, 3, 6 months compared), `/apply`, `/apply/<ref>/<token>` (corrections), `/application/<ref>/<token>` (review, payment, confirmation, invoices, PDF downloads).
+Public: `/vocational-studies`, `/vocational-studies/regular` (2 years), `/vocational-studies/intensive` (1, 3, 6 months compared), `/apply`, `/apply/<ref>/<token>` (corrections), `/application/<ref>/<token>` (review, payment, confirmation, invoices, PDF downloads).
 Staff: `/admin` > Vocational studies: applications, status decisions, invoices, manual payments, programme content and fees, portfolio photos, videos, testimonials.
 Server: `src/server/voc` (applications, payments/webhooks, invoices, admin, PDF templates, API dispatchers), `src/config/vocational.ts`.
 

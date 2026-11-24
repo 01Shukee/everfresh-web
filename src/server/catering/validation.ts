@@ -28,8 +28,8 @@ export function validateEnquiry(raw: unknown, now: Date, eventTypes: string[] | 
   const eventType = oneLine(r.eventType, 80); if (!eventType) e.eventType = "Choose or enter the type of event."; else if (eventTypes && eventTypes.length && !eventTypes.includes(eventType)) e.eventType = "Choose one of the listed event types.";
   const eventDate = oneLine(r.eventDate, 40);
   if (!eventDate) e.eventDate = "Enter the event date."; else if (!validDate(eventDate)) e.eventDate = "Enter a valid date."; else {
-    const today = lagosToday(now); const lim = new Date(today + "T00:00:00Z"); lim.setUTCFullYear(lim.getUTCFullYear() + 3); const max = lim.toISOString().slice(0, 10);
-    if (eventDate < today) e.eventDate = "The event date can't be in the past."; else if (eventDate > max) e.eventDate = "Please choose a date within the next 3 years.";
+    const today = lagosToday(now); const lim = new Date(today + "T00:00:00Z"); lim.setUTCFullYear(lim.getUTCFullYear() + 2); const max = lim.toISOString().slice(0, 10);
+    if (eventDate < today) e.eventDate = "The event date can't be in the past."; else if (eventDate > max) e.eventDate = "Please choose a date within the next 2 years.";
   }
   const location = oneLine(r.location, 200); if (location.length < 3) e.location = "Enter where the event will take place.";
   const gRaw = typeof r.guests === "string" ? r.guests.replace(/[,\s]/g, "") : r.guests; const guests = typeof gRaw === "number" ? gRaw : /^\d{1,6}$/.test(String(gRaw ?? "")) ? Number(gRaw) : NaN;

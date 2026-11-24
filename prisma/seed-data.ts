@@ -118,7 +118,7 @@ const SITE = {
     values: ["Freshness in every order", "Skill learned by doing", "Clear prices and honest quotations", "Respect for every customer and student", "Care in how we present and serve"],
     history: "Everfresh Creations Ltd serves customers through three connected services: a cake and food ordering kitchen, a vocational school for baking and catering, and an event catering team.\n\nOur trainees learn by making real cakes and food, and present their work at showcase events. Photos from those events are in the galleries on this site.",
     foodInfo: "Order cakes online for delivery or pickup, now or scheduled for the date you need. Every cake is made to order.",
-    vocationalInfo: "The Vocational Institute in Nnewi offers a 3-year Regular Programme and Intensive programmes from 1 month to 1 year, taught through hands-on practice.",
+    vocationalInfo: "The Vocational Institute in Nnewi offers a 2-year Regular Programme and Intensive programmes from 1 month to 1 year, taught through hands-on practice.",
     cateringInfo: "Tell us the date, place and number of guests, and we will prepare a quotation for your event.",
     credentials: [] as string[],
     photos: [
