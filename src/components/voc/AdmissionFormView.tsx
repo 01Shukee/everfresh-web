@@ -8,15 +8,23 @@ import { SignaturePad } from "./SignaturePad";
 import "./admission-form.css";
 
 const readAsDataUrl = (f: Blob) => new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => rej(new Error("read")); r.readAsDataURL(f); });
+/** Reads a picture without a blob: address (the site's security policy blocks those, which made good photos "unreadable"). */
+async function decode(file: File): Promise<{ src: CanvasImageSource; w: number; h: number; close: () => void }> {
+  if (typeof createImageBitmap === "function") {
+    try { const bmp = await createImageBitmap(file, { imageOrientation: "from-image" } as any); return { src: bmp, w: bmp.width, h: bmp.height, close: () => bmp.close() }; } catch { /* fall back to the slower route below */ }
+  }
+  const url = await readAsDataUrl(file);
+  const img = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("img")); i.src = url; });
+  return { src: img, w: img.naturalWidth || img.width, h: img.naturalHeight || img.height, close: () => {} };
+}
 /** Shrinks a photo on the phone before upload, so uploads are small and fast. */
 async function shrink(file: File, maxW: number, maxH: number, quality: number): Promise<string> {
-  const url = URL.createObjectURL(file);
+  const pic = await decode(file);
   try {
-    const img = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("img")); i.src = url; });
-    const k = Math.min(1, maxW / img.width, maxH / img.height); const c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-    const ctx = c.getContext("2d"); if (!ctx) throw new Error("canvas"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+    const k = Math.min(1, maxW / pic.w, maxH / pic.h); const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(pic.w * k)); c.height = Math.max(1, Math.round(pic.h * k));
+    const ctx = c.getContext("2d"); if (!ctx) throw new Error("canvas"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(pic.src, 0, 0, c.width, c.height);
     return c.toDataURL("image/jpeg", quality);
-  } finally { URL.revokeObjectURL(url); }
+  } finally { pic.close(); }
 }
 const kb = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1000))} KB`);
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-NG", { dateStyle: "long", timeZone: "Africa/Lagos" }) : "");
@@ -26,7 +34,7 @@ function FieldInput({ f, value, err, onChange }: { f: FormField; value: string; 
   const id = `f-${f.id}`;
   return (
     <div className={`field ${err ? "bad" : ""}`}>
-      <label htmlFor={id}>{f.label} {f.required && <span className="req">(required)</span>}</label>
+      <label htmlFor={id}>{f.label}</label>
       {f.kind === "select" ? <select id={id} value={value} onChange={(e) => onChange(e.target.value)} aria-invalid={!!err}><option value="">Choose&hellip;</option>{f.options?.map((o) => <option key={o}>{o}</option>)}</select>
         : <input id={id} type={f.kind} inputMode={f.kind === "tel" ? "tel" : undefined} maxLength={f.max} value={value} onChange={(e) => onChange(e.target.value)} aria-invalid={!!err} />}
       {f.hint && <p className="hint">{f.hint}</p>}{err && <p className="err">{err}</p>}
@@ -98,7 +106,7 @@ export function AdmissionFormView({ refNo, token, initial }: { refNo: string; to
         </div></fieldset>
 
       {path === "online" && <>
-        <p className="small">You will need a passport photograph. This is the school&rsquo;s own form, section by section. Your sponsor, your recommender and your witness each sign in their own box: hand them the phone or computer when it is their turn.</p>
+        <p className="small"><b>Every part of this form must be filled in.</b> If something does not apply to you, write N/A (or None). You will need a passport photograph. This is the school&rsquo;s own form, section by section. Your sponsor, your recommender and your witness each sign in their own box: hand them the phone or computer when it is their turn.</p>
         <section className="fsec" aria-labelledby="h-A"><h2 id="h-A" className="serif">{headingCase(A.title)}</h2>
           <div className="name3">{A.nameFields.map(fi)}</div><div className="grid-f2">{A.fields.map(fi)}</div></section>
         <section className="fsec"><h2 className="serif">{admissionForm.passportLabel}</h2>

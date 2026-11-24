@@ -12,8 +12,8 @@ export interface FormField {
 }
 export interface SignBlock { role: SignRole; title: string; hand: string }
 
-const f = (id: string, label: string, kind: FieldKind = "text", o: Partial<FormField> = {}): FormField => ({ id, label, kind, ...o });
-
+/** Every part of the school's form is compulsory, so every field is required unless it says otherwise. */
+const f = (id: string, label: string, kind: FieldKind = "text", o: Partial<FormField> = {}): FormField => ({ id, label, kind, required: true, ...o });
 export const COURSE_MODES = ["Full time", "Part time", "Weekend", "Special"] as const;
 
 /** SECTION A */
@@ -43,11 +43,12 @@ const A_REST: FormField[] = [
 
 /** SECTION B: three rows, four columns (date, school, examination passed, date). */
 const B_COLUMNS = ["DATE", "SCHOOLS/COLLEGES ATTENDED", "EXAMINATION PASSED", "DATE"] as const;
+/** The first row is compulsory. Rows 2 and 3 are for further schools: they may be left empty, but a row that is started must be completed. */
 const B_ROWS: FormField[][] = [1, 2, 3].map((n) => [
-  f(`sch${n}From`, "Date attended", "text", { max: 16 }),
-  f(`sch${n}Name`, "School or college attended", "text", { max: 42 }),
-  f(`sch${n}Exam`, "Examination passed", "text", { max: 36 }),
-  f(`sch${n}ExamDate`, "Date passed", "text", { max: 14 }),
+  f(`sch${n}From`, "Date attended", "text", { max: 16, required: n === 1 }),
+  f(`sch${n}Name`, "School or college attended", "text", { max: 42, required: n === 1 }),
+  f(`sch${n}Exam`, "Examination passed", "text", { max: 36, required: n === 1 }),
+  f(`sch${n}ExamDate`, "Date passed", "text", { max: 14, required: n === 1 }),
 ]);
 
 /** SECTION C: five courses; for each one a mode of study may be marked. */
@@ -57,7 +58,7 @@ const C_COURSES = [
   { id: "course3", name: "FASHION & TEXTILE DESIGN" },
   { id: "course4", name: "MAKE UP ARTIST" },
   { id: "course5", name: "COSMETOLOGY" },
-].map((c) => ({ ...c, field: f(c.id, c.name, "select", { options: [...COURSE_MODES] }) }));
+].map((c) => ({ ...c, field: f(c.id, c.name, "select", { options: [...COURSE_MODES], required: false }) }));
 
 /** SECTION D (sponsor), E (recommender), G (witness) */
 const D_FIELDS: FormField[] = [

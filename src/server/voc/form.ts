@@ -117,6 +117,7 @@ async function saveImpl(deps: VocDeps, ref: string, token: string, raw: unknown,
     const v = clean(input[f.id], f.max ?? 160); data[f.id] = v;
     if (v) { const e = formatError(f, v, now); if (e) errors[f.id] = e; } else if (submit && f.required) errors[f.id] = "This is required.";
   }
+    admissionForm.B.rows.forEach((row, i) => { const filled = row.filter((f) => data[f.id]).length; if (filled > 0 && filled < row.length) for (const f of row) if (!data[f.id]) errors[f.id] = `Complete school ${i + 1}, or clear the row.`; });
     if (submit && !admissionForm.C.courses.some((c) => data[c.id])) errors.courses = "Mark at least one course and your mode of study.";
       const sigIn = isRec(r.signatures) ? r.signatures : {}; const newSigs: Partial<Record<SignRole, Buffer | null>> = {};
   for (const role of SIGN_ROLES) {

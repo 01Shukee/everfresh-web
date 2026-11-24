@@ -438,3 +438,13 @@ test("the PDF is the school's two-page Letter form: printable blank and filled c
 
   assert.equal(filled.getPageCount(), 2);
 });
+
+test("every part of the form is compulsory; a started school row must be completed, an empty one is fine", async () => {
+  const { repo, d, ref, token } = await setup(); await markPaid(repo, ref);
+  const noMiddle = { ...fullData(), middleName: "", hailsFrom: "", recRank: "" };
+  const r1: any = await saveForm(d, ref, token, { data: noMiddle, confirmed: true }, true);
+  assert.ok(!r1.ok && r1.fieldErrors.middleName && r1.fieldErrors.hailsFrom && r1.fieldErrors.recRank);
+  const partial = { ...fullData(), sch2Name: "", sch3From: "", sch3Name: "", sch3Exam: "", sch3ExamDate: "" };   // row 2 half done, row 3 empty
+  const r2: any = await saveForm(d, ref, token, { data: partial, confirmed: true }, true);
+  assert.ok(!r2.ok && r2.fieldErrors.sch2Name && !r2.fieldErrors.sch3Name);
+});
