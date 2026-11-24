@@ -38,3 +38,9 @@
 .af .modes label.on { border-color: var(--ef-green-deep); background: var(--ef-green-deep); color: #fff; }
 .af .signbox { margin: 14px 0 4px; padding-top: 12px; border-top: 1px solid var(--ef-line); }
 @media (max-width: 700px) { .af .name3 { grid-template-columns: 1fr; } .af .schrow { grid-template-columns: 1fr 1fr; } .af .schrow > :nth-child(2), .af .schrow > :nth-child(3) { grid-column: 1 / -1; } }
+
+
+/* compulsory fields */
+.af .req { color: var(--ef-red); font-weight: 800; }
+.af .legend { padding: 10px 14px; margin: 0 0 18px; background: #fff; border: 1.5px solid var(--ef-red); border-radius: var(--radius); }
+.af .field label .req { margin-left: 2px; }
