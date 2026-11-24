@@ -89,8 +89,8 @@ export const admissionForm = {
     formTitle: "APPLICATION FORM FOR ADMISSION",
     subtitle: "PROFESSIONAL EDUCATIONAL COURSES",
   },
-  /** PLACEHOLDER logo. To use the real one: replace the file below (same name, JPEG) and set `caption` to null. Nothing else changes. */
-  logo: { file: "public/brand/admission-form-logo.jpg", caption: ["GOVERNMENT", "APPROVED"] as [string, string] | null },
+  /** The real logo is built into src/config/admissionLogo.ts. No caption is printed under it. */
+  logo: { caption: null as [string, string] | null },
   /** A small printed reference (application number and page) at the foot of each PDF page, so a printed or scanned form can be matched to its application. Set false for a form with nothing added. */
   showReference: true,
   passportLabel: "Passport photograph",

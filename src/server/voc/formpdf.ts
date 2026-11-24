@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { concatTransformationMatrix, popGraphicsState, pushGraphicsState, PDFDocument, rgb, StandardFonts, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
 import { admissionForm, applicantName, SIGN_ROLES, type SignRole } from "../../config/admissionForm";
+import { ADMISSION_LOGO_PNG_BASE64 } from "../../config/admissionLogo";
 import type { AdmissionFormRec } from "./form";
 import type { Application } from "./model";
 
@@ -25,7 +24,7 @@ function wrap(text: string, f: PDFFont, size: number, width: number): string[] {
   for (const word of text.split(/\s+/).filter(Boolean)) { const t = cur ? `${cur} ${word}` : word; if (f.widthOfTextAtSize(t, size) <= width) cur = t; else { if (cur) out.push(cur); cur = word; } }
   if (cur) out.push(cur); return out;
 }
-function readLogo(): Uint8Array | null { try { return readFileSync(join(process.cwd(), admissionForm.logo.file)); } catch { return null; } }
+function readLogo(): Uint8Array | null { try { return Uint8Array.from(Buffer.from(ADMISSION_LOGO_PNG_BASE64, "base64")); } catch { return null; } }
 
 type Row = [label: string, labelX: number, field: string | null, x1: number, x2: number];
 
@@ -88,7 +87,7 @@ export async function admissionFormPdf(app: Application, rec: AdmissionFormRec |
   page = pdf.addPage([W, H]);
   const lh = admissionForm.letterhead;
   if (logo) {
-    page.drawImage(logo, { x: 69.48, y: Y(41.81 + 66.74), width: 61.4, height: 66.74 });
+    page.drawImage(logo, { x: 58, y: Y(38 + 88.4), width: 88, height: 88.4 });
     const cap = admissionForm.logo.caption; if (cap) { fitted(cap[0], 78.4, 59.19, bold, 7.8, 44.3, CAPTION); fitted(cap[1], 83.3, 69.06, bold, 7.8, 34.6, CAPTION); }
   }
   fitted(lh.name, 190.8, 59.34, bold, 20.8, 310.8);
