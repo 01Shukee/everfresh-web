@@ -80,31 +80,37 @@ export function SiteFooter({
             <b className="lab">Contact</b>
 
             <span className="line">
-              <span className="k">Everfresh Creations — Food and Catering</span>
-              <a href={telHref(site.contact.phone!)}>
+              <span className="k">Everfresh Creations: Food and Catering</span>
+              <a className="fnum" href={telHref(site.contact.phone!)}>
                 {site.contact.phone}
               </a>
-              <a
-                href={waHref(site.contact.whatsappDigits!)}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                WhatsApp: {site.contact.phone}
-              </a>
+              <span className="fchan">
+                <a href={telHref(site.contact.phone!)}>Call</a>
+                <a
+                  href={waHref(site.contact.whatsappDigits!)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  WhatsApp
+                </a>
+              </span>
             </span>
 
             <span className="line">
               <span className="k">Everfresh Vocational Institute</span>
-              <a href={telHref(site.contact.vocationalPhone!)}>
+              <a className="fnum" href={telHref(site.contact.vocationalPhone!)}>
                 {site.contact.vocationalPhone}
               </a>
-              <a
-                href={waHref(site.contact.vocationalWhatsappDigits!)}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                WhatsApp: {site.contact.vocationalPhone}
-              </a>
+              <span className="fchan">
+                <a href={telHref(site.contact.vocationalPhone!)}>Call</a>
+                <a
+                  href={waHref(site.contact.vocationalWhatsappDigits!)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  WhatsApp
+                </a>
+              </span>
             </span>
 
             <span className="line">
@@ -117,9 +123,10 @@ export function SiteFooter({
             {place && (
               <span className="line">
                 <span className="k">Address</span>
-                {place}
+                <span className="block">{place}</span>
                 {c.mapConfirmed && c.address && (
                   <a
+                    className="fmaplink"
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -167,7 +174,7 @@ export function SiteFooter({
 
         <div className="signoff">
           <span className="tagline serif">{s.business.tagline}</span>
-          <span className="small">
+          <span className="small copy">
             &copy; {year} {s.business.legalName}. All rights reserved.
           </span>
         </div>
