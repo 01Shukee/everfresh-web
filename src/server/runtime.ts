@@ -4,7 +4,7 @@ import { MemoryRepo, type Repo } from "./repo";
 import type { OrderDeps } from "./orders";
 import type { VocDeps } from "./voc/applications";
 import type { CatDeps } from "./catering/service";
-import { normaliseWhatsAppNumber } from "./catering/whatsapp";
+import { site } from "../config/site";
 
 const g = globalThis as unknown as { __efRepo?: Repo };
 
@@ -40,11 +40,8 @@ export async function getDeps(): Promise<OrderDeps> { const repo = await getRepo
 
 export async function getVocDeps(): Promise<VocDeps> { return { repo: await getRepo(), gateway: getGateway(), siteUrl: env.siteUrl() }; }
 
-/** The WhatsApp number is editable in Admin > Website > Business and contact. Once that section has been saved it is the only source (clearing it turns WhatsApp off). Before that, the configured default is used, then WHATSAPP_NUMBER_DIGITS. Never hard-coded here. */
-export async function whatsappDigitsFor(repo: Repo): Promise<string | null> {
-  const { getSettings } = await import("./site/settings");
-  const stored = await repo.docGet<{ contact?: unknown }>("site", "main");
-  const s = await getSettings(repo);
-  return normaliseWhatsAppNumber(s.contact.whatsapp) ?? (stored?.contact ? null : normaliseWhatsAppNumber(process.env.WHATSAPP_NUMBER_DIGITS));
+/** Returns the fixed Everfresh Creations WhatsApp number from the source configuration. */
+export async function whatsappDigitsFor(_repo: Repo): Promise<string | null> {
+  return site.contact.whatsappDigits;
 }
 export async function getCateringDeps(): Promise<CatDeps> { const repo = await getRepo(); return { repo, whatsappDigits: await whatsappDigitsFor(repo) }; }

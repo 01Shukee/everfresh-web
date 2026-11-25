@@ -11,10 +11,37 @@ import { IntensiveCompare } from "./IntensiveCompare";
 import type { VariantContent } from "@/server/voc/model";
 import type { publicVocational } from "@/server/voc/admin";
 import type { ownerView } from "@/server/voc/applications";
+import { site } from "@/config/site";
+import { telHref, waHref } from "@/lib/contact";
 
 export type Pub = Awaited<ReturnType<typeof publicVocational>>;
 export type OwnerView = NonNullable<Awaited<ReturnType<typeof ownerView>>>;
-
+function VocContactCta() {
+  return (
+    <section className="sec white" aria-label="Contact the Vocational Institute">
+      <div className="wrap">
+        <h2 className="serif green">Need more information?</h2>
+        <p>
+          Contact Everfresh Vocational Institute about admissions and programmes.
+        </p>
+        <p>
+          <a href={telHref(site.contact.vocationalPhone!)}>
+            Call {site.contact.vocationalPhone}
+          </a>
+        </p>
+        <p>
+          <a
+            href={waHref(site.contact.vocationalWhatsappDigits!)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            WhatsApp {site.contact.vocationalPhone}
+          </a>
+        </p>
+      </div>
+    </section>
+  );
+}
 export function VocLandingView({ pub }: { pub: Pub }) {
   return (
     <>
@@ -25,6 +52,7 @@ export function VocLandingView({ pub }: { pub: Pub }) {
       <VocBenefits content={pub.content} />
       <VocTestimonials items={pub.testimonials} />
       <section className="sec white" aria-label="Apply"><div className="wrap cta serif"><span className="mk">Ready?</span> <Link href="#programmes">Choose a programme</Link> and apply.</div></section>
+    <VocContactCta />
     </>
   );
 }
@@ -38,6 +66,7 @@ export function RegularView({ c, photo }: { c: VariantContent; photo?: { src: st
         <p className="lede">The Regular Programme runs for 2 years.</p>
       </div><HeroPhoto photo={photo} /></div></section>
       <section className="sec gridbg"><div className="wrap">{c.published ? <VariantBody c={c} /> : <div className="empty"><p className="serif empty-title">Programme details are being prepared.</p><p>Course information, admission requirements and fees will appear here once the institution confirms them.</p></div>}</div></section>
+    <VocContactCta />
     </>
   );
 }
@@ -51,6 +80,7 @@ export function IntensiveView({ content, photo }: { content: Record<string, Vari
         <p className="lede">Compare the options side by side. Each has its own course information, fees and application.</p>
       </div><HeroPhoto photo={photo} /></div></section>
       <IntensiveCompare content={content} />
+    <VocContactCta />
     </>
   );
 }

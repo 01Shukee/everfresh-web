@@ -8,11 +8,32 @@ import { getSettings } from "./site/settings";
 const siteUrl = () => (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const SIGN = "\n\nEverfresh Creations Ltd";
 const first = (name: string) => name.trim().split(/\s+/)[0] || "there";
-const footer = () => [esc(siteConfig.legalName), ...[siteConfig.contact.address, siteConfig.contact.phone, siteConfig.contact.email].filter(Boolean).map((x) => esc(String(x)))];
+const footer = (vocational = false) => [
+  esc(vocational ? "Everfresh Vocational Institute" : siteConfig.legalName),
+  ...[
+    siteConfig.contact.address,
+    vocational ? siteConfig.contact.vocationalPhone : siteConfig.contact.phone,
+    siteConfig.contact.email,
+  ]
+    .filter(Boolean)
+    .map((x) => esc(String(x))),
+];
 const privateNote = (what: string) => para(`<span style="font-size:13px;color:#666">Keep this link private: anyone with it can ${what}.</span>`);
 
 /** Wraps a body in the Everfresh email design (the same one as the registration email). Exported so other emails can reuse it. */
-export const brandedShell = (a: { preheader: string; title: string; body: string }) => emailShell({ siteUrl: siteUrl(), preheader: a.preheader, title: a.title, body: a.body, footerLines: footer() });
+export const brandedShell = (a: {
+  preheader: string;
+  title: string;
+  body: string;
+  vocational?: boolean;
+}) =>
+  emailShell({
+    siteUrl: siteUrl(),
+    preheader: a.preheader,
+    title: a.title,
+    body: a.body,
+    footerLines: footer(a.vocational),
+  });
 
 /** Saves the email to the outbox, then tries to deliver it, waiting up to 4 seconds. Waiting matters on serverless hosts (Vercel), which can freeze a function right after it responds and never run a background timer. Never throws: email problems must not break orders, payments or applications; anything undelivered stays in the outbox and is retried. */
 async function send(repo: Repo, m: { to: string | null | undefined; subject: string; text: string; kind: string; html?: string }) {

@@ -24,7 +24,7 @@ export function HomeView({ d }: { d: HomeData }) {
       <VideoShowcase videos={d.videos.map((v) => ({ id: v.id, name: v.title, src: v.src, poster: v.poster, captions: v.captions }))} />
       <Benefits items={h.benefits} />
       <Testimonials items={d.testimonials} />
-      <FinalCta whatsappDigits={d.whatsapp} />
+      <FinalCta />
     </>
   );
 }
