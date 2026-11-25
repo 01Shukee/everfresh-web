@@ -6,6 +6,8 @@ import { Tbc } from "@/components/voc/Bits";
 import type { SiteSettings } from "@/server/site/settings";
 import { ContactForm } from "./ContactForm";
 import { EverfreshLocationMap } from "./EverfreshLocationMap";
+import { site } from "@/config/site";
+import { telHref, waHref } from "@/lib/contact";
 
 const Block = ({ title, text, href, cta }: { title: string; text: string | null; href: string; cta: string }) => (
   <article className="abox"><h3 className="serif">{title}</h3><p>{text ?? <Tbc what={`${title} information`} />}</p><Button href={href} tone="ghost" small>{cta}</Button></article>);
@@ -33,37 +35,161 @@ export function AboutView({ s }: { s: SiteSettings }) {
   );
 }
 
-export function ContactView({ s, whatsapp }: { s: SiteSettings; whatsapp: string | null }) {
+export function ContactView({
+  s,
+}: {
+  s: SiteSettings;
+  whatsapp: string | null;
+}) {
   const hp = s.homepage.heroImages.catering;
-const c = s.contact;
-const tel = c.phone?.replace(/[^\d+]/g, "");
-const vocationalTel = c.vocationalPhone?.replace(/[^\d+]/g, "");
-const faqs = s.faqs.filter((f) => f.published).sort((a, b) => a.sort - b.sort);
+  const c = s.contact;
+  const faqs = s.faqs
+    .filter((f) => f.published)
+    .sort((a, b) => a.sort - b.sort);
+
   return (
     <>
-      <section className="vhero gridbg"><div className={`wrap phero ${hp ? "has-photo" : ""}`}><div><span className="lab green">Contact Us</span><h1 className="serif page-title big2">Let&rsquo;s <em>talk.</em></h1><p className="lede">Reach us by phone, WhatsApp or the form below.</p></div><HeroPhoto photo={hp ? { src: hp.url, alt: hp.alt } : null} /></div></section>
-      <section className="sec" aria-labelledby="cd"><div className="wrap cgrid">
-        <div>
-          <h2 id="cd" className="serif green">Get in touch</h2>
-          <dl className="dl crows">
-            <dt>Everfresh Creations (Food & Catering)</dt><dd>{c.phone ? <a href={`tel:${tel}`}>{c.phone}</a> : <Tbc what="Phone" />}</dd>
-<dt>Vocational Institute</dt><dd>{c.vocationalPhone ? <a href={`tel:${vocationalTel}`}>{c.vocationalPhone}</a> : <Tbc what="Phone" />}</dd>
-            <dt>WhatsApp</dt><dd>{whatsapp ? <a href={`https://wa.me/${whatsapp}`} rel="noopener" target="_blank">Chat on WhatsApp (+{whatsapp})</a> : <Tbc what="WhatsApp number" />}</dd>
-            <dt>Email</dt><dd>{c.email ? <a href={`mailto:${c.email}`}>{c.email}</a> : <Tbc what="Email" />}</dd>
-            <dt>Address</dt><dd>{c.address ? <>{c.address}{c.city ? `, ${c.city}` : ""}{c.mapConfirmed && <><br /><a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`} rel="noopener" target="_blank">View on map</a></>}</> : <Tbc what="Address" />}</dd>
-            <dt>Opening hours</dt><dd>{c.hours.length ? c.hours.map((h) => <span key={h} className="block">{h}</span>) : <Tbc what="Opening hours" />}</dd>
-            {c.social.length > 0 && <><dt>Follow us</dt><dd>{c.social.map((x) => <a key={x.url} href={x.url} rel="noopener" className="block">{x.label}</a>)}</dd></>}
-          </dl>
-          <p className="small dim0">Ordering food, applying to study or planning an event? Use <Link href="/order-food">Order Food</Link>, <Link href="/apply">Apply</Link> or <Link href="/event-catering#quote">Request a Quote</Link>.</p>
+      <section className="vhero gridbg">
+        <div className={`wrap phero ${hp ? "has-photo" : ""}`}>
+          <div>
+            <span className="lab green">Contact Us</span>
+            <h1 className="serif page-title big2">
+              Let&rsquo;s <em>talk.</em>
+            </h1>
+            <p className="lede">
+              Reach us by phone, WhatsApp or the form below.
+            </p>
+          </div>
+          <HeroPhoto photo={hp ? { src: hp.url, alt: hp.alt } : null} />
         </div>
-        <div><h2 className="serif green">Send us a message</h2><ContactForm /></div>
-      </div></section>
-            <section className="sec white" aria-label="Our location">
+      </section>
+
+      <section className="sec" aria-labelledby="cd">
+        <div className="wrap cgrid">
+          <div>
+            <h2 id="cd" className="serif green">Get in touch</h2>
+
+            <dl className="dl crows">
+              <dt>Everfresh Creations — Food and Catering</dt>
+              <dd>
+                <a href={telHref(site.contact.phone!)}>
+                  Call: {site.contact.phone}
+                </a>
+                <a
+                  href={waHref(site.contact.whatsappDigits!)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  WhatsApp: {site.contact.phone}
+                </a>
+              </dd>
+
+              <dt>Everfresh Vocational Institute</dt>
+              <dd>
+                <a href={telHref(site.contact.vocationalPhone!)}>
+                  Call: {site.contact.vocationalPhone}
+                </a>
+                <a
+                  href={waHref(site.contact.vocationalWhatsappDigits!)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  WhatsApp: {site.contact.vocationalPhone}
+                </a>
+              </dd>
+
+              <dt>Email</dt>
+              <dd>
+                <a href={`mailto:${site.contact.email}`}>
+                  {site.contact.email}
+                </a>
+              </dd>
+
+              <dt>Address</dt>
+              <dd>
+                {c.address ? (
+                  <>
+                    {c.address}{c.city ? `, ${c.city}` : ""}
+                    {c.mapConfirmed && (
+                      <>
+                        <br />
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}`}
+                          rel="noopener"
+                          target="_blank"
+                        >
+                          View on map
+                        </a>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <Tbc what="Address" />
+                )}
+              </dd>
+
+              <dt>Opening hours</dt>
+              <dd>
+                {c.hours.length ? (
+                  c.hours.map((h) => (
+                    <span key={h} className="block">{h}</span>
+                  ))
+                ) : (
+                  <Tbc what="Opening hours" />
+                )}
+              </dd>
+
+              {c.social.length > 0 && (
+                <>
+                  <dt>Follow us</dt>
+                  <dd>
+                    {c.social.map((x) => (
+                      <a key={x.url} href={x.url} rel="noopener" className="block">
+                        {x.label}
+                      </a>
+                    ))}
+                  </dd>
+                </>
+              )}
+            </dl>
+
+            <p className="small dim0">
+              Ordering food, applying to study or planning an event? Use{" "}
+              <Link href="/order-food">Order Food</Link>,{" "}
+              <Link href="/apply">Apply</Link> or{" "}
+              <Link href="/event-catering#quote">Request a Quote</Link>.
+            </p>
+          </div>
+
+          <div>
+            <h2 className="serif green">Send us a message</h2>
+            <ContactForm />
+          </div>
+        </div>
+      </section>
+
+      <section className="sec white" aria-label="Our location">
         <div className="wrap">
           <EverfreshLocationMap />
         </div>
       </section>
-      {faqs.length > 0 && <section className="sec white" aria-labelledby="cf"><div className="wrap"><span className="lab green">FAQs</span><h2 id="cf" className="serif ital2">Common questions.</h2><div className="faqs">{faqs.map((f) => <details key={f.id}><summary className="serif">{f.q}</summary><p className="prewrap">{f.a}</p></details>)}</div></div></section>}
+
+      {faqs.length > 0 && (
+        <section className="sec white" aria-labelledby="cf">
+          <div className="wrap">
+            <span className="lab green">FAQs</span>
+            <h2 id="cf" className="serif ital2">Common questions.</h2>
+            <div className="faqs">
+              {faqs.map((f) => (
+                <details key={f.id}>
+                  <summary className="serif">{f.q}</summary>
+                  <p className="prewrap">{f.a}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
     </>
   );
 }

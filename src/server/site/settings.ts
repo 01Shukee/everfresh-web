@@ -7,7 +7,18 @@ import type { Repo } from "../repo";
 export interface Img { url: string; alt: string }
 export interface SiteSettings {
   business: { name: string; legalName: string; tagline: string; description: string | null; notifyEmail: string | null };
-  contact: { phone: string | null; vocationalPhone: string | null; email: string | null; address: string | null; city: string | null; hours: string[]; whatsapp: string | null; mapConfirmed: boolean; social: { label: string; url: string }[] };
+contact: {
+  phone: string | null;
+  vocationalPhone: string | null;
+  email: string | null;
+  address: string | null;
+  city: string | null;
+  hours: string[];
+  whatsapp: string | null;
+  vocationalWhatsapp: string | null;
+  mapConfirmed: boolean;
+  social: { label: string; url: string }[];
+};
   about: { intro: string | null; mission: string | null; values: string[]; history: string | null; foodInfo: string | null; vocationalInfo: string | null; cateringInfo: string | null; credentials: string[]; photos: { id: string; url: string; alt: string; caption: string }[] };
   homepage: { benefits: string[]; heroImages: { food: Img | null; studies: Img | null; catering: Img | null }; featured: { id: string; kind: "food" | "project" | "event" | "student"; title: string; caption: string; url: string; alt: string }[] };
   brand: { logoUrl: string | null; logoAlt: string; emblemUrl: string | null; faviconUrl: string | null };
@@ -17,7 +28,18 @@ export const SECTIONS = ["business", "contact", "about", "homepage", "brand", "f
 export type Section = (typeof SECTIONS)[number];
 export const defaultSettings = (): SiteSettings => ({
   business: { name: site.name, legalName: site.legalName, tagline: site.tagline, description: null, notifyEmail: null },
-  contact: { phone: site.contact.phone,vocationalPhone: site.contact.vocationalPhone, email: site.contact.email, address: site.contact.address, city: site.contact.city, hours: site.contact.hours ? [site.contact.hours] : [], whatsapp: site.contact.whatsappDigits, mapConfirmed: false, social: [] },
+contact: {
+  phone: site.contact.phone,
+  vocationalPhone: site.contact.vocationalPhone,
+  email: site.contact.email,
+  address: site.contact.address,
+  city: site.contact.city,
+  hours: site.contact.hours ? [site.contact.hours] : [],
+  whatsapp: site.contact.whatsappDigits,
+  vocationalWhatsapp: site.contact.vocationalWhatsappDigits,
+  mapConfirmed: false,
+  social: [],
+},
   about: { intro: null, mission: null, values: [], history: null, foodInfo: null, vocationalInfo: null, cateringInfo: null, credentials: [], photos: [] },
   homepage: { benefits: [], heroImages: { food: null, studies: null, catering: null }, featured: [] },
   brand: { logoUrl: null, logoAlt: "Everfresh logo", emblemUrl: null, faviconUrl: null },
@@ -32,15 +54,18 @@ export async function getSettings(repo: Repo): Promise<SiteSettings> {
     ...Object.fromEntries(SECTIONS.filter((k) => st[k] !== undefined).map((k) => [k, st[k]])),
   } as SiteSettings;
 
-  if (st.contact) {
-    merged.contact = {
-      ...d.contact,
-      ...st.contact,
-      vocationalPhone: st.contact.vocationalPhone === undefined
-        ? d.contact.vocationalPhone
-        : st.contact.vocationalPhone,
-    };
-  }
+if (st.contact) {
+  merged.contact = {
+    ...d.contact,
+    ...st.contact,
+
+    phone: d.contact.phone,
+    vocationalPhone: d.contact.vocationalPhone,
+    email: d.contact.email,
+    whatsapp: d.contact.whatsapp,
+    vocationalWhatsapp: d.contact.vocationalWhatsapp,
+  };
+}
 
   return merged;
 }
@@ -58,17 +83,45 @@ export function validateSection(section: Section, input: unknown): R<unknown> {
   if (!isRec(raw) && section !== "faqs") return { ok: false, error: "Invalid content." };
   switch (section) {
     case "business": { const name = t(raw.name, 80), legalName = t(raw.legalName, 120); if (name.length < 2 || legalName.length < 2) return { ok: false, error: "Enter the business name and legal name." }; const ne = t(raw.notifyEmail, 120).toLowerCase() || null; if (ne && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(ne)) return { ok: false, error: "Enter a valid notification email address, or leave it blank." }; return { ok: true, value: { name, legalName, tagline: t(raw.tagline, 80), description: t(raw.description, 800) || null, notifyEmail: ne } }; }
-    case "contact": {
-      const phone = t(raw.phone, 30) || null; if (phone && !/^\+?[\d\s()-]{7,22}$/.test(phone)) return { ok: false, error: "Enter the phone number using digits, spaces and + only." };
-      const vocationalPhone = t(raw.vocationalPhone, 30) || null;
-      if (vocationalPhone && !/^\+?[\d\s()-]{7,22}$/.test(vocationalPhone)) {
-          return { ok: false, error: "Enter the Vocational Institute phone number using digits, spaces and + only." };
-        }const email = t(raw.email, 120).toLowerCase() || null; if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return { ok: false, error: "Enter a valid email address." };
-      const waRaw = t(raw.whatsapp, 30); const whatsapp = waRaw ? normaliseWhatsAppNumber(waRaw) : null; if (waRaw && !whatsapp) return { ok: false, error: "Enter the WhatsApp number with its country code, for example +234 803 123 4567." };
-      const address = t(raw.address, 250) || null; if (raw.mapConfirmed === true && !address) return { ok: false, error: "Enter the address before turning on the map link." };
-      const social = (Array.isArray(raw.social) ? raw.social : []).slice(0, 8).map((x: any) => ({ label: t(x?.label, 40), url: t(x?.url, 300) })); if (social.some((x: any) => !x.label || !/^https:\/\/[^\s]+$/.test(x.url))) return { ok: false, error: "Each social link needs a label and an https:// address." };
-      return { ok: true, value: { phone,vocationalPhone, email, address, city: t(raw.city, 80) || null, hours: lines(raw.hours, 14, 80), whatsapp, mapConfirmed: raw.mapConfirmed === true, social } };
-    }
+case "contact": {
+  const address = t(raw.address, 250) || null;
+
+  if (raw.mapConfirmed === true && !address) {
+    return {
+      ok: false,
+      error: "Enter the address before turning on the map link.",
+    };
+  }
+
+  const social = (Array.isArray(raw.social) ? raw.social : [])
+    .slice(0, 8)
+    .map((x: any) => ({
+      label: t(x?.label, 40),
+      url: t(x?.url, 300),
+    }));
+
+  if (
+    social.some(
+      (x: any) => !x.label || !/^https:\/\/[^\s]+$/.test(x.url)
+    )
+  ) {
+    return {
+      ok: false,
+      error: "Each social link needs a label and an https:// address.",
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      address,
+      city: t(raw.city, 80) || null,
+      hours: lines(raw.hours, 14, 80),
+      mapConfirmed: raw.mapConfirmed === true,
+      social,
+    },
+  };
+}
     case "about": {
       const photos = (Array.isArray(raw.photos) ? raw.photos : []).slice(0, 12).map((p: any) => ({ id: t(p?.id, 40) || randomUUID(), url: imgOk(p?.url) ?? "", alt: t(p?.alt, 140), caption: t(p?.caption, 200) }));
       if (photos.some((p: any) => !p.url || !p.alt)) return { ok: false, error: `Each About photo needs a usable image address and alt text. ${IMAGE_URL_HELP}` };

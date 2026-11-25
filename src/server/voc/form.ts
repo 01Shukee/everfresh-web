@@ -217,20 +217,51 @@ export async function staffFormAction(d: VocDeps, ref: string, raw: unknown): Pr
 // ---------------------------------------------------------------- emails
 const siteUrl = () => (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const first = (n: string) => n.trim().split(/\s+/)[0] || "there";
-async function announceSubmitted(repo: Repo, app: Application, rec: AdmissionFormRec) {
+async function announceSubmitted(
+  repo: Repo,
+  app: Application,
+  rec: AdmissionFormRec
+) {
   const url = `${siteUrl()}/application/${app.ref}/${app.token}`;
+
   try {
-    await sendRaw(repo, { to: app.details.email, kind: "application", subject: `Admission form received: ${app.ref}`,
+    await sendRaw(repo, {
+      to: app.details.email,
+      kind: "application",
+      subject: `Admission form received: ${app.ref}`,
       text: `Hello ${first(app.details.fullName)},\n\nWe have received your admission form for application ${app.ref}.\n\nNext, wait for our email confirming your acceptance. School fees can be paid only after you are accepted.\n\nYour application: ${url}\nKeep this link private.\n\nEverfresh Creations Ltd`,
-      html: brandedShell({ preheader: `We have received your admission form for ${app.ref}.`, title: "Admission form received", body: para(`Hello ${esc(first(app.details.fullName))},`) + para(`We have received your admission form for application <b>${esc(app.ref)}</b>.`) + refBadge(app.ref) + para("<b>Next:</b> wait for our email confirming your acceptance. School fees can be paid only after you are accepted.") + button("Open your application", url) }) });
-  } catch { /* the outbox retries */ }
-  await notifyStaff(repo, `Admission form submitted: ${app.ref}`, `${app.details.fullName} submitted the admission form (${rec.mode === "print" ? "a signed copy was uploaded" : "filled in and signed online"}). Open the admin to review it.`, { label: "Open the admin", url: `${siteUrl()}/admin` });
+      html: brandedShell({
+        preheader: `We have received your admission form for ${app.ref}.`,
+        title: "Admission form received",
+        body:
+          para(`Hello ${esc(first(app.details.fullName))},`) +
+          para(
+            `We have received your admission form for application <b>${esc(app.ref)}</b>.`
+          ) +
+          refBadge(app.ref) +
+          para(
+            "<b>Next:</b> wait for our email confirming your acceptance. School fees can be paid only after you are accepted."
+          ) +
+          button("Open your application", url),
+        vocational: true,
+      }),
+    });
+  } catch {
+    /* the outbox retries */
+  }
+
+  await notifyStaff(
+    repo,
+    `Admission form submitted: ${app.ref}`,
+    `${app.details.fullName} submitted the admission form (${rec.mode === "print" ? "a signed copy was uploaded" : "filled in and signed online"}). Open the admin to review it.`,
+    { label: "Open the admin", url: `${siteUrl()}/admin` }
+  );
 }
 async function mailReturned(repo: Repo, app: Application, rec: AdmissionFormRec) {
   const url = `${siteUrl()}/application/${app.ref}/${app.token}/form`;
   try {
     await sendRaw(repo, { to: app.details.email, kind: "application", subject: `Admission form ${app.ref}: please correct it`,
       text: `Hello ${first(app.details.fullName)},\n\nWe have looked at your admission form and need you to correct something:\n\n${rec.staffNote ?? ""}\n\nOpen your form: ${url}\nKeep this link private.\n\nEverfresh Creations Ltd`,
-      html: brandedShell({ preheader: `Please correct your admission form ${app.ref}.`, title: "Please correct your form", body: para(`Hello ${esc(first(app.details.fullName))},`) + para("We have looked at your admission form and need you to correct something:") + para(`<b>${esc(rec.staffNote ?? "").replace(/\n/g, "<br>")}</b>`) + button("Open your form", url) }) });
+      html: brandedShell({ preheader: `Please correct your admission form ${app.ref}.`, title: "Please correct your form", body: para(`Hello ${esc(first(app.details.fullName))},`) + para("We have looked at your admission form and need you to correct something:") + para(`<b>${esc(rec.staffNote ?? "").replace(/\n/g, "<br>")}</b>`) + button("Open your form", url), vocational: true, }) });
   } catch { /* the outbox retries */ }
 }

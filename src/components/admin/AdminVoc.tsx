@@ -19,6 +19,7 @@ import {
   serializeCurriculum,
   serializeFees,
 } from "@/lib/voc-text";
+import { site } from "@/config/site";
 
 const api = async (url: string, method = "GET", body?: unknown) => {
   const r = await fetch(url, {
@@ -872,7 +873,6 @@ function Institute() {
       setF({
         name: r.json.name ?? "",
         address: r.json.address ?? "",
-        phones: (r.json.phones ?? []).join("\n"),
         note: r.json.note ?? "",
       })
     );
@@ -886,7 +886,6 @@ function Institute() {
     const r = await api("/api/admin/voc/institute", "PUT", {
       name: f.name,
       address: f.address,
-      phones: parseLines(f.phones),
       note: f.note,
     });
 
@@ -912,29 +911,31 @@ function Institute() {
       </h2>
 
       <p className="hint">
-        These details appear at the bottom of emails and PDFs sent to students.
+        The contact numbers below are fixed and appear in student emails and PDFs.
       </p>
 
       {msg && <p className="alert" role="status">{msg}</p>}
 
+      <div className="grid-f">
+        <div className="field">
+          <label>Institute phone</label>
+          <p>{site.contact.vocationalPhone}</p>
+        </div>
+
+        <div className="field">
+          <label>Institute WhatsApp</label>
+          <p>{site.contact.vocationalPhone}</p>
+        </div>
+
+        <div className="field">
+          <label>Shared email</label>
+          <p>{site.contact.email}</p>
+        </div>
+      </div>
+
       <form className="adminform" onSubmit={save}>
         {I("name", "Institute name")}
         {I("address", "Institute address")}
-
-        <div className="field">
-          <label htmlFor="i-phones">
-            Admissions phone numbers (one per line)
-          </label>
-          <textarea
-            id="i-phones"
-            rows={4}
-            value={f.phones}
-            onChange={(e) =>
-              setF({ ...f, phones: e.target.value })
-            }
-          />
-        </div>
-
         {I("note", "Additional information (optional)")}
 
         <button className="pill sm">Save institute details</button>
